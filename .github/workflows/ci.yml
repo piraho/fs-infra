@@ -1,0 +1,24 @@
+name: ci
+on:
+  pull_request: {}
+  push: { branches: [ main ] }
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose config validates
+        run: docker compose -f docker-compose.yml config -q
+      - name: Envoy config validates
+        run: >
+          docker run --rm -v $PWD/gateway:/gw envoyproxy/envoy:v1.31-latest
+          --mode validate -c /gw/envoy.yaml
+  stack-e2e:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone sibling repos (org checkout in real CI)
+        run: echo "actions/checkout per repo with a PAT — placeholder for org setup"
+      - name: make dev + smoke
+        run: echo "docker compose up --build -d && ../fs-e2e/smoke.sh"
