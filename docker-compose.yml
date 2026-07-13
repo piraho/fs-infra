@@ -86,6 +86,19 @@ services:
     ports: [ "8087:8087" ]
     depends_on:
       identity: { condition: service_healthy }
+  integration:
+    build: ../fs-integration
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/familyshare
+      DATABASE_USER: familyshare
+      DATABASE_PASSWORD: familyshare
+      JWKS_URI: http://identity:8081/.well-known/jwks.json
+      FAMILY_URL: http://family:8082
+      IDENTITY_URL: http://identity:8081
+      PROFILE_URL: http://profile:8084
+    ports: [ "8089:8089" ]
+    depends_on:
+      identity: { condition: service_healthy }
   media:
     build: ../fs-media
     environment:

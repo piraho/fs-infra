@@ -42,6 +42,8 @@ static_resources:
                         - match: { prefix: "/.well-known/" }
                         - match: { prefix: "/api/family/v1/slug-resolutions/" }
                         - match: { prefix: "/api/family/v1/invitations/" }   # token-in-path proves invite
+                        - match: { prefix: "/api/integration/v1/integration-tokens" }  # client-credentials auth
+                        - match: { prefix: "/api/integration/v1/data/" }               # X-Api-Key auth in-service
                         - match: { prefix: "/api/" }
                           requires: { provider_name: familyshare }           # everything else: JWT at the edge
                   - name: envoy.filters.http.router
@@ -72,6 +74,8 @@ static_resources:
                           route: { cluster: notification, prefix_rewrite: "/" }
                         - match: { prefix: "/api/media/" }
                           route: { cluster: media, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/integration/" }
+                          route: { cluster: integration, prefix_rewrite: "/" }
                         - match: { prefix: "/" }
                           route: { cluster: web }
   clusters:
@@ -92,5 +96,7 @@ static_resources:
           { endpoint: { address: { socket_address: { address: notification, port_value: 8087 } } } } ] } ] } }
     - { <<: *svc, name: media, load_assignment: { cluster_name: media, endpoints: [ { lb_endpoints: [
           { endpoint: { address: { socket_address: { address: media, port_value: 8088 } } } } ] } ] } }
+    - { <<: *svc, name: integration, load_assignment: { cluster_name: integration, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: integration, port_value: 8089 } } } } ] } ] } }
     - { <<: *svc, name: web, load_assignment: { cluster_name: web, endpoints: [ { lb_endpoints: [
           { endpoint: { address: { socket_address: { address: web, port_value: 3000 } } } } ] } ] } }
