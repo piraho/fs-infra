@@ -1,6 +1,6 @@
 dev:            ## Build & run the full stack
 	docker compose up --build -d
-	@echo "web:      http://localhost:3000"
+	@echo "app (use this): http://localhost:8080  (same-origin via Envoy — API + web)"
 	@echo "identity: http://localhost:8081/actuator/health"
 	@echo "family:   http://localhost:8082/actuator/health"
 logs:

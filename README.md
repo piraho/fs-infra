@@ -2,7 +2,7 @@
 
 ## Run everything
 ```bash
-make dev      # postgres + identity (8081) + family (8082) + web (3000)
+make dev      # full stack; OPEN THE APP AT http://localhost:8080 (gateway = same-origin API)
 make e2e      # API smoke + Playwright golden journey
 make down
 ```
