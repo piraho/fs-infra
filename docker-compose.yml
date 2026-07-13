@@ -116,8 +116,9 @@ services:
     image: axllent/mailpit
     ports: [ "8025:8025" ]
   gateway:
-    image: nginx:1.27-alpine
-    volumes: [ "./gateway/nginx.conf:/etc/nginx/nginx.conf:ro" ]
+    image: envoyproxy/envoy:v1.31-latest
+    command: [ "envoy", "-c", "/etc/envoy/envoy.yaml" ]
+    volumes: [ "./gateway/envoy.yaml:/etc/envoy/envoy.yaml:ro" ]
     ports: [ "8080:8080" ]
     depends_on: [ identity, family, sharing, profile, calendar, escalation, web ]
   web:

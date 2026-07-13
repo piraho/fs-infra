@@ -1,0 +1,96 @@
+# Single front door with authentication AT THE GATEWAY (DEC-0020):
+# ES256 JWTs validated against identity's JWKS before any service is reached.
+# Services still validate independently — defense in depth, not a bypass.
+static_resources:
+  listeners:
+    - name: edge
+      address: { socket_address: { address: 0.0.0.0, port_value: 8080 } }
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: edge
+                generate_request_id: true
+                http_filters:
+                  - name: envoy.filters.http.lua        # DEC-0021: correlation id — honor client's, else mint from request id
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+                      default_source_code:
+                        inline_string: |
+                          function envoy_on_request(h)
+                            if h:headers():get("x-correlation-id") == nil then
+                              h:headers():add("x-correlation-id", h:headers():get("x-request-id"))
+                            end
+                          end
+                          function envoy_on_response(h) end
+                  - name: envoy.filters.http.jwt_authn
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                      providers:
+                        familyshare:
+                          issuer: "https://auth.familyshare.localhost"
+                          forward: true                  # services re-validate (defense in depth)
+                          remote_jwks:
+                            http_uri: { uri: "http://identity:8081/.well-known/jwks.json",
+                                        cluster: identity, timeout: 2s }
+                            cache_duration: 300s
+                      rules:                             # first match wins — public routes precede the API guard
+                        - match: { prefix: "/api/identity/v1/users" }
+                        - match: { prefix: "/api/identity/v1/sessions" }
+                        - match: { prefix: "/api/identity/v1/tokens" }
+                        - match: { prefix: "/.well-known/" }
+                        - match: { prefix: "/api/family/v1/slug-resolutions/" }
+                        - match: { prefix: "/api/family/v1/invitations/" }   # token-in-path proves invite
+                        - match: { prefix: "/api/" }
+                          requires: { provider_name: familyshare }           # everything else: JWT at the edge
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                route_config:
+                  virtual_hosts:
+                    - name: all
+                      domains: ["*"]
+                      response_headers_to_add:
+                        - header: { key: "X-Correlation-Id", value: "%REQ(X-CORRELATION-ID)%" }
+                      routes:
+                        - match: { prefix: "/api/identity/" }
+                          route: { cluster: identity, prefix_rewrite: "/" }
+                        - match: { prefix: "/.well-known/" }
+                          route: { cluster: identity }
+                        - match: { prefix: "/api/family/" }
+                          route: { cluster: family, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/sharing/" }
+                          route: { cluster: sharing, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/profile/" }
+                          route: { cluster: profile, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/calendar/" }
+                          route: { cluster: calendar, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/escalation/" }
+                          route: { cluster: escalation, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/notification/" }
+                          route: { cluster: notification, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/media/" }
+                          route: { cluster: media, prefix_rewrite: "/" }
+                        - match: { prefix: "/" }
+                          route: { cluster: web }
+  clusters:
+    - &svc { name: identity, type: STRICT_DNS, connect_timeout: 2s,
+        load_assignment: { cluster_name: identity, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: identity, port_value: 8081 } } } } ] } ] } }
+    - { <<: *svc, name: family, load_assignment: { cluster_name: family, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: family, port_value: 8082 } } } } ] } ] } }
+    - { <<: *svc, name: sharing, load_assignment: { cluster_name: sharing, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: sharing, port_value: 8083 } } } } ] } ] } }
+    - { <<: *svc, name: profile, load_assignment: { cluster_name: profile, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: profile, port_value: 8084 } } } } ] } ] } }
+    - { <<: *svc, name: calendar, load_assignment: { cluster_name: calendar, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: calendar, port_value: 8085 } } } } ] } ] } }
+    - { <<: *svc, name: escalation, load_assignment: { cluster_name: escalation, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: escalation, port_value: 8086 } } } } ] } ] } }
+    - { <<: *svc, name: notification, load_assignment: { cluster_name: notification, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: notification, port_value: 8087 } } } } ] } ] } }
+    - { <<: *svc, name: media, load_assignment: { cluster_name: media, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: media, port_value: 8088 } } } } ] } ] } }
+    - { <<: *svc, name: web, load_assignment: { cluster_name: web, endpoints: [ { lb_endpoints: [
+          { endpoint: { address: { socket_address: { address: web, port_value: 3000 } } } } ] } ] } }
