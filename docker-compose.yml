@@ -1,0 +1,36 @@
+# FamilyShare local stack — `make dev`. Java services build in-container (multi-stage Gradle).
+name: familyshare
+services:
+  postgres:
+    image: postgres:16
+    environment: { POSTGRES_USER: familyshare, POSTGRES_PASSWORD: familyshare, POSTGRES_DB: familyshare }
+    ports: [ "5432:5432" ]
+    volumes: [ "pgdata:/var/lib/postgresql/data" ]
+    healthcheck: { test: [ "CMD-SHELL", "pg_isready -U familyshare" ], interval: 5s, retries: 12 }
+  identity:
+    build: ../fs-identity
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/familyshare
+      DATABASE_USER: familyshare
+      DATABASE_PASSWORD: familyshare
+    ports: [ "8081:8081" ]
+    depends_on: { postgres: { condition: service_healthy } }
+    healthcheck: { test: [ "CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP" ], interval: 10s, retries: 20 }
+  family:
+    build: ../fs-family
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/familyshare
+      DATABASE_USER: familyshare
+      DATABASE_PASSWORD: familyshare
+      JWKS_URI: http://identity:8081/.well-known/jwks.json
+    ports: [ "8082:8082" ]
+    depends_on:
+      identity: { condition: service_healthy }
+  web:
+    build: ../fs-web
+    environment:
+      NEXT_PUBLIC_IDENTITY_URL: http://localhost:8081
+      NEXT_PUBLIC_FAMILY_URL: http://localhost:8082
+    ports: [ "3000:3000" ]
+    depends_on: [ identity, family ]
+volumes: { pgdata: {} }
