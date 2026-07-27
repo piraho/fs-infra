@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: fs-gateway
+  namespace: familyshare
+  labels:
+    app.kubernetes.io/name: fs-gateway
+    app.kubernetes.io/part-of: familyshare
+spec:
+  # ClusterIP: the Envoy gateway now sits BEHIND ingress-nginx (see ../ingress/).
+  # ingress-nginx owns the single public OCI Always-Free 10 Mbps LoadBalancer and
+  # terminates TLS; it proxies plaintext HTTP to this Service on port 8080.
+  # (Previously type: LoadBalancer with OCI LB annotations — now removed.)
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: fs-gateway
+  ports:
+    - name: http
+      port: 8080          # referenced by ingress/ingress.yaml as fs-gateway:8080
+      targetPort: edge    # Envoy edge listener (containerPort 8080)
+      protocol: TCP

@@ -1,0 +1,205 @@
+# Envoy edge config for OKE. Adapted from fs-infra/gateway/envoy.yaml:
+#   * upstream cluster addresses changed from docker-compose names to k8s
+#     Service DNS (identity -> fs-identity:8081, family -> fs-family:8082, ...)
+#   * the `web` cluster and the `/` -> web route were DROPPED: the browser app
+#     now lives on Vercel and proxies same-origin /api/* + /.well-known/ here.
+#   * jwt_authn issuer/remote_jwks point at fs-identity; the issuer MUST match
+#     fs-identity's FAMILYSHARE_JWT_ISSUER (values/fs-identity.yaml).
+#   * an admin listener (0.0.0.0:9901) was added so the pod can expose /ready
+#     to the kubelet. It is NOT published by the LoadBalancer Service.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fs-gateway-envoy
+  namespace: familyshare
+  labels:
+    app.kubernetes.io/name: fs-gateway
+    app.kubernetes.io/part-of: familyshare
+data:
+  envoy.yaml: |
+    # Single front door with authentication AT THE GATEWAY (DEC-0020):
+    # ES256 JWTs validated against identity's JWKS before any service is reached.
+    # Services still validate independently — defense in depth, not a bypass.
+    admin:
+      # Pod-local only (reachable by the kubelet for probes); not on the LB.
+      address: { socket_address: { address: 0.0.0.0, port_value: 9901 } }
+    static_resources:
+      listeners:
+        - name: edge
+          address: { socket_address: { address: 0.0.0.0, port_value: 8080 } }
+          filter_chains:
+            - filters:
+                - name: envoy.filters.network.http_connection_manager
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                    stat_prefix: edge
+                    generate_request_id: true
+                    # ingress-nginx terminates TLS in front of us; advertise HSTS to browsers
+                    # so they pin HTTPS for two years (incl. subdomains). Added at the HCM level
+                    # so it is applied to every response regardless of route.
+                    response_headers_to_add:
+                      - header:
+                          key: "Strict-Transport-Security"
+                          value: "max-age=63072000; includeSubDomains"
+                    http_filters:
+                      - name: envoy.filters.http.lua        # DEC-0021: correlation id — honor client's, else mint from request id
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+                          default_source_code:
+                            inline_string: |
+                              function envoy_on_request(h)
+                                if h:headers():get("x-correlation-id") == nil then
+                                  h:headers():add("x-correlation-id", h:headers():get("x-request-id"))
+                                end
+                              end
+                              function envoy_on_response(h) end
+                      - name: envoy.filters.http.jwt_authn
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.jwt_authn.v3.JwtAuthentication
+                          providers:
+                            familyshare:
+                              # MUST match fs-identity FAMILYSHARE_JWT_ISSUER.
+                              issuer: "https://auth.familyshare.com"
+                              forward: true                  # services re-validate (defense in depth)
+                              remote_jwks:
+                                http_uri: { uri: "http://fs-identity:8081/.well-known/jwks.json",
+                                            cluster: identity, timeout: 2s }
+                                cache_duration: 300s
+                          rules:                             # first match wins — public routes precede the API guard
+                            - match: { prefix: "/api/identity/v1/users" }
+                            - match: { prefix: "/api/identity/v1/sessions" }
+                            - match: { prefix: "/api/identity/v1/tokens" }
+                            - match: { prefix: "/.well-known/" }
+                            - match: { prefix: "/api/family/v1/slug-resolutions/" }
+                            - match: { prefix: "/api/family/v1/invitations/" }   # token-in-path proves invite
+                            - match: { prefix: "/api/integration/v1/integration-tokens" }  # client-credentials auth
+                            - match: { prefix: "/api/integration/v1/data/" }               # X-Api-Key auth in-service
+                            - match: { prefix: "/api/" }
+                              requires: { provider_name: familyshare }           # everything else: JWT at the edge
+                      - name: envoy.filters.http.local_ratelimit
+                        # Brute-force blunting on the PUBLIC auth endpoints. Defined here so the
+                        # filter is present in the chain, but DISABLED globally (filter_enabled 0%);
+                        # it is turned on only for the auth routes via typed_per_filter_config below.
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+                          stat_prefix: edge_http_local_rate_limiter
+                          token_bucket:
+                            max_tokens: 20        # burst capacity
+                            tokens_per_fill: 5    # refill rate
+                            fill_interval: 60s    # ~5 req / minute after burst is spent
+                          filter_enabled:
+                            default_value: { numerator: 0, denominator: HUNDRED }
+                          filter_enforced:
+                            default_value: { numerator: 0, denominator: HUNDRED }
+                      - name: envoy.filters.http.router
+                        typed_config:
+                          "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+                    route_config:
+                      virtual_hosts:
+                        - name: all
+                          domains: ["*"]
+                          response_headers_to_add:
+                            - header: { key: "X-Correlation-Id", value: "%REQ(X-CORRELATION-ID)%" }
+                          routes:
+                            # web app is on Vercel; only /api/* and /.well-known/ are served here.
+                            # Auth endpoints (public, no JWT) — rate-limited to ~5 req/min, burst 20,
+                            # per Envoy pod, to blunt credential brute force. These MUST precede the
+                            # broad "/api/identity/" route (first match wins) and keep the same
+                            # prefix_rewrite semantics (/api/identity/<x> -> /<x>).
+                            - match: { prefix: "/api/identity/v1/sessions" }
+                              route: { cluster: identity, prefix_rewrite: "/v1/sessions" }
+                              typed_per_filter_config:
+                                envoy.filters.http.local_ratelimit:
+                                  "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+                                  stat_prefix: edge_auth_rate_limiter
+                                  token_bucket:
+                                    max_tokens: 20
+                                    tokens_per_fill: 5
+                                    fill_interval: 60s
+                                  filter_enabled:
+                                    default_value: { numerator: 100, denominator: HUNDRED }
+                                  filter_enforced:
+                                    default_value: { numerator: 100, denominator: HUNDRED }
+                            - match: { prefix: "/api/identity/v1/users" }
+                              route: { cluster: identity, prefix_rewrite: "/v1/users" }
+                              typed_per_filter_config:
+                                envoy.filters.http.local_ratelimit:
+                                  "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+                                  stat_prefix: edge_auth_rate_limiter
+                                  token_bucket:
+                                    max_tokens: 20
+                                    tokens_per_fill: 5
+                                    fill_interval: 60s
+                                  filter_enabled:
+                                    default_value: { numerator: 100, denominator: HUNDRED }
+                                  filter_enforced:
+                                    default_value: { numerator: 100, denominator: HUNDRED }
+                            - match: { prefix: "/api/identity/" }
+                              route: { cluster: identity, prefix_rewrite: "/" }
+                            - match: { prefix: "/.well-known/" }
+                              route: { cluster: identity }
+                            - match: { prefix: "/api/family/" }
+                              route: { cluster: family, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/sharing/" }
+                              route: { cluster: sharing, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/profile/" }
+                              route: { cluster: profile, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/calendar/" }
+                              route: { cluster: calendar, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/escalation/" }
+                              route: { cluster: escalation, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/notification/" }
+                              route: { cluster: notification, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/media/" }
+                              route: { cluster: media, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/integration/" }
+                              route: { cluster: integration, prefix_rewrite: "/" }
+      # Envoy's config loader does not support YAML merge keys (<<: *anchor), so each
+      # cluster is spelled out explicitly. All share: type STRICT_DNS, connect_timeout 2s.
+      # Addresses are k8s Service DNS names inside the `familyshare` namespace.
+      clusters:
+        - name: identity
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: identity, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-identity, port_value: 8081 } } } } ] } ] }
+        - name: family
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: family, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-family, port_value: 8082 } } } } ] } ] }
+        - name: sharing
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: sharing, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-sharing, port_value: 8083 } } } } ] } ] }
+        - name: profile
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: profile, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-profile, port_value: 8084 } } } } ] } ] }
+        - name: calendar
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: calendar, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-calendar, port_value: 8085 } } } } ] } ] }
+        - name: escalation
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: escalation, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-escalation, port_value: 8086 } } } } ] } ] }
+        - name: notification
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: notification, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-notification, port_value: 8087 } } } } ] } ] }
+        - name: media
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: media, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-media, port_value: 8088 } } } } ] } ] }
+        - name: integration
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: integration, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-integration, port_value: 8089 } } } } ] } ] }

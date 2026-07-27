@@ -1,0 +1,14 @@
+# fs-family — families, memberships, invitations. DNS: http://fs-family:8082.
+image:
+  repository: fs-family
+port: 8082
+
+env:
+  # Resource server: validate ES256 JWTs against identity's JWKS.
+  JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
+  # Neon free tier caps total connections; keep each service's pool tiny.
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+
+# DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD come from Secret fs-db.
+envFrom:
+  - fs-db

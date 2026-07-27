@@ -1,0 +1,10 @@
+# Local override: remap ONLY the host-side ports that collide with the user's
+# existing native postgres (5432) and node dev server (3000).
+# `!override` REPLACES the base ports list (Compose otherwise concatenates lists).
+# Internal container ports are unchanged, so service-to-service networking
+# (Envoy -> web:3000, services -> postgres:5432) is unaffected.
+services:
+  postgres:
+    ports: !override [ "15432:5432" ]
+  web:
+    ports: !override [ "13000:3000" ]

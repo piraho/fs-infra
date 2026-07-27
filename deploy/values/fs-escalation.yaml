@@ -1,0 +1,15 @@
+# fs-escalation — escalation engine. DNS: http://fs-escalation:8086.
+image:
+  repository: fs-escalation
+port: 8086
+
+env:
+  JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
+  FAMILY_URL: http://fs-family:8082
+  NOTIFICATION_URL: http://fs-notification:8087
+  # Neon free tier caps total connections; keep each service's pool tiny.
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+
+# DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD come from Secret fs-db.
+envFrom:
+  - fs-db

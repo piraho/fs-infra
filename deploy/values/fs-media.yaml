@@ -1,0 +1,18 @@
+# fs-media — media uploads via presigned S3 URLs. DNS: http://fs-media:8088.
+image:
+  repository: fs-media
+port: 8088
+
+env:
+  JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
+  FAMILY_URL: http://fs-family:8082
+  SHARING_URL: http://fs-sharing:8083
+  # Neon free tier caps total connections; keep each service's pool tiny.
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+
+# fs-db       -> DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD
+# fs-media-s3 -> S3_ENDPOINT / S3_PUBLIC_ENDPOINT / S3_BUCKET /
+#                S3_ACCESS_KEY / S3_SECRET_KEY  (see PRODUCTION-READINESS.md 1.2)
+envFrom:
+  - fs-db
+  - fs-media-s3

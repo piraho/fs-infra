@@ -1,0 +1,72 @@
+# terraform.tfvars.example
+# -----------------------------------------------------------------------------
+# Copy this file to terraform.tfvars and replace the placeholder values with
+# your own. DO NOT commit terraform.tfvars — it references your private key and
+# tenancy details.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# Values marked REQUIRED have no default and must be set.
+# -----------------------------------------------------------------------------
+
+# --- Authentication / tenancy (REQUIRED) ---------------------------------------
+
+# OCID of your tenancy (Profile -> Tenancy).
+tenancy_ocid = "ocid1.tenancy.oc1..aaaaaaaaEXAMPLEtenancyREPLACE"
+
+# OCID of the compartment to deploy into (Identity -> Compartments).
+compartment_ocid = "ocid1.compartment.oc1..aaaaaaaaEXAMPLEcompartmentREPLACE"
+
+# OCID of the IAM user whose API key signs requests (Profile -> your user).
+user_ocid = "ocid1.user.oc1..aaaaaaaaEXAMPLEuserREPLACE"
+
+# Fingerprint of the uploaded API signing key (Profile -> API Keys).
+fingerprint = "aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99"
+
+# Path to the matching PEM private key on this machine.
+private_key_path = "~/.oci/oci_api_key.pem"
+
+# OCI region identifier.
+region = "us-ashburn-1"
+
+# --- Cluster configuration (optional — defaults shown) -------------------------
+
+cluster_name = "familyshare"
+
+# IMPORTANT: verify this is a currently supported OKE version before apply:
+#   oci ce cluster-options get --cluster-option-id all \
+#     --query 'data."kubernetes-versions"'
+k8s_version = "v1.31.1"
+
+# Always-Free Arm Ampere A1: 2 nodes x 2 OCPU / 12 GB = 4 OCPU + 24 GB, which
+# is the ENTIRE free A1 grant for the tenancy. Keep node_pool_size * node_ocpus
+# <= 4 and node_pool_size * node_memory_gb <= 24 to stay at $0.
+# NOTE: A1 capacity is often exhausted ("Out of host capacity"); retry apply,
+# try another AD, or use a less-contended region if it fails.
+node_pool_size = 2
+node_shape     = "VM.Standard.A1.Flex"
+node_ocpus     = 2
+node_memory_gb = 12
+
+# node_boot_volume_gb = 50
+
+# Leave unset to auto-discover the matching Oracle Linux 8 *aarch64* OKE image
+# (required by the A1 shape — an x86 image will not boot on A1).
+# Set explicitly only if discovery finds nothing for your k8s version/region:
+#   oci ce node-pool-options get --node-pool-option-id all \
+#     --query 'data.sources[?contains("source-name", `aarch64`)].{name:"source-name",id:"image-id"}'
+# node_image_ocid = "ocid1.image.oc1.iad.aaaaaaaaEXAMPLEaarch64imageREPLACE"
+
+# Optional SSH public key for worker-node access.
+# ssh_public_key = "ssh-rsa AAAA... you@example.com"
+
+# --- Networking (optional — defaults shown) ------------------------------------
+
+# vcn_cidr           = "10.0.0.0/16"
+# public_subnet_cidr = "10.0.0.0/24"
+# worker_subnet_cidr = "10.0.10.0/24"
+# pods_cidr          = "10.244.0.0/16"
+# services_cidr      = "10.96.0.0/16"
+
+# Restrict this to your office/VPN CIDR for production instead of the world.
+# api_endpoint_allowed_cidr = "0.0.0.0/0"

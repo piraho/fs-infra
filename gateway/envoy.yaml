@@ -78,25 +78,56 @@ static_resources:
                           route: { cluster: integration, prefix_rewrite: "/" }
                         - match: { prefix: "/" }
                           route: { cluster: web }
+  # Envoy's config loader does not support YAML merge keys (<<: *anchor), so each
+  # cluster is spelled out explicitly. All share: type STRICT_DNS, connect_timeout 2s.
   clusters:
-    - &svc { name: identity, type: STRICT_DNS, connect_timeout: 2s,
-        load_assignment: { cluster_name: identity, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: identity, port_value: 8081 } } } } ] } ] } }
-    - { <<: *svc, name: family, load_assignment: { cluster_name: family, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: family, port_value: 8082 } } } } ] } ] } }
-    - { <<: *svc, name: sharing, load_assignment: { cluster_name: sharing, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: sharing, port_value: 8083 } } } } ] } ] } }
-    - { <<: *svc, name: profile, load_assignment: { cluster_name: profile, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: profile, port_value: 8084 } } } } ] } ] } }
-    - { <<: *svc, name: calendar, load_assignment: { cluster_name: calendar, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: calendar, port_value: 8085 } } } } ] } ] } }
-    - { <<: *svc, name: escalation, load_assignment: { cluster_name: escalation, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: escalation, port_value: 8086 } } } } ] } ] } }
-    - { <<: *svc, name: notification, load_assignment: { cluster_name: notification, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: notification, port_value: 8087 } } } } ] } ] } }
-    - { <<: *svc, name: media, load_assignment: { cluster_name: media, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: media, port_value: 8088 } } } } ] } ] } }
-    - { <<: *svc, name: integration, load_assignment: { cluster_name: integration, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: integration, port_value: 8089 } } } } ] } ] } }
-    - { <<: *svc, name: web, load_assignment: { cluster_name: web, endpoints: [ { lb_endpoints: [
-          { endpoint: { address: { socket_address: { address: web, port_value: 3000 } } } } ] } ] } }
+    - name: identity
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: identity, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: identity, port_value: 8081 } } } } ] } ] }
+    - name: family
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: family, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: family, port_value: 8082 } } } } ] } ] }
+    - name: sharing
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: sharing, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: sharing, port_value: 8083 } } } } ] } ] }
+    - name: profile
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: profile, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: profile, port_value: 8084 } } } } ] } ] }
+    - name: calendar
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: calendar, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: calendar, port_value: 8085 } } } } ] } ] }
+    - name: escalation
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: escalation, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: escalation, port_value: 8086 } } } } ] } ] }
+    - name: notification
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: notification, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: notification, port_value: 8087 } } } } ] } ] }
+    - name: media
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: media, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: media, port_value: 8088 } } } } ] } ] }
+    - name: integration
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: integration, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: integration, port_value: 8089 } } } } ] } ] }
+    - name: web
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: web, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: web, port_value: 3000 } } } } ] } ] }

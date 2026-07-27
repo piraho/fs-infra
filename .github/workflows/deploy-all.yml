@@ -1,0 +1,38 @@
+# Manual full / first-time rollout orchestrator for all FamilyShare services.
+#
+# Runs the shared reusable CD pipeline (service-cd.yml) for every service via a
+# matrix. Use this for the initial cluster bootstrap or a coordinated full
+# redeploy; day-to-day deploys happen automatically from each service repo's own
+# cd.yml on push to main.
+#
+# Requires the same secrets as service-cd.yml (see that file). Secrets are
+# forwarded to the reusable workflow with `secrets: inherit`.
+name: deploy-all
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  rollout:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { service: fs-identity, port: 8081 }
+          - { service: fs-family, port: 8082 }
+          - { service: fs-sharing, port: 8083 }
+          - { service: fs-profile, port: 8084 }
+          - { service: fs-calendar, port: 8085 }
+          - { service: fs-escalation, port: 8086 }
+          - { service: fs-notification, port: 8087 }
+          - { service: fs-media, port: 8088 }
+          - { service: fs-integration, port: 8089 }
+    uses: ./.github/workflows/service-cd.yml
+    with:
+      service: ${{ matrix.service }}
+      port: ${{ matrix.port }}
+    secrets: inherit

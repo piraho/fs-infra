@@ -1,0 +1,38 @@
+# fs-identity — auth service, mints ES256 JWTs, publishes JWKS.
+# Deploy with release name fs-identity so DNS is http://fs-identity:8081.
+image:
+  repository: fs-identity
+port: 8081
+
+# ---------------------------------------------------------------------------
+# IMPORTANT: replicas MUST stay 1.
+# TokenService generates the EC signing key PER INSTANCE at startup
+# (PRODUCTION-READINESS.md 2.1) — it is not shared across pods and does not
+# survive a restart. Multiple replicas would each publish a different JWKS,
+# so tokens minted by pod A fail validation against pod B's keys.
+# Do NOT enable the HPA and do NOT raise replicas until a shared/rotated key
+# source (mounted secret / KMS) lands. PDB is disabled because a minAvailable:1
+# budget on a single replica blocks node drains.
+# ---------------------------------------------------------------------------
+replicas: 1
+hpa:
+  enabled: false
+pdb:
+  enabled: false
+
+env:
+  # Spring relaxed binding: FAMILYSHARE_JWT_ISSUER -> familyshare.jwt.issuer.
+  # MUST match the issuer the Envoy gateway validates (gateway/configmap.yaml).
+  FAMILYSHARE_JWT_ISSUER: "https://auth.familyshare.com"
+  # FAMILYSHARE_JWT_ACCESS_TTL_SECONDS -> familyshare.jwt.access-ttl-seconds.
+  FAMILYSHARE_JWT_ACCESS_TTL_SECONDS: "900"
+  # Neon free tier caps total connections; keep each service's pool tiny.
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+
+# fs-db  -> DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD
+# fs-jwt -> FAMILYSHARE_JWT_SIGNING_KEY (EC P-256 JWK). With a mounted signing
+#           key the per-instance-key limitation is gone, but identity stays at
+#           replicas=1 for memory on the free tier (HPA/PDB remain disabled).
+envFrom:
+  - fs-db
+  - fs-jwt
