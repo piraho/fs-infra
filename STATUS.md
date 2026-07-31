@@ -12,7 +12,19 @@ Auto-refreshed hourly by the [`status-sync`](https://github.com/piraho/fs-infra/
 - **Matches latest build?** — ✅ `latest` = prod is on the newest image built from `main`; ⬆️ `behind` = a newer image exists that prod hasn't rolled out yet.
 
 <!-- LIVE:START -->
-_Not synced yet — run the **status-sync** workflow once (Actions → status-sync → Run workflow)._
+_Live status — last synced 2026-07-31 16:51 UTC (auto). Trigger `status-sync` to refresh now._
+
+| Service | Ready | Running in prod (image) | Matches latest build? |
+|---------|:-----:|-------------------------|:---------------------:|
+| **fs-identity** | 1/1 | `latest` | ✅ latest |
+| **fs-family** | 1/1 | `latest` | ✅ latest |
+| **fs-sharing** | 1/1 | `latest` | ✅ latest |
+| **fs-profile** | 1/1 | `latest` | ✅ latest |
+| **fs-calendar** | 1/1 | `latest` | ✅ latest |
+| **fs-escalation** | 1/1 | `latest` | ✅ latest |
+| **fs-notification** | 1/1 | `latest` | ✅ latest |
+| **fs-media** | 1/1 | `latest` | ✅ latest |
+| **fs-integration** | 1/1 | `latest` | ✅ latest |
 <!-- LIVE:END -->
 
 ---
