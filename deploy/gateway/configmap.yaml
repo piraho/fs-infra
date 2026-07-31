@@ -34,13 +34,6 @@ data:
                     "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
                     stat_prefix: edge
                     generate_request_id: true
-                    # ingress-nginx terminates TLS in front of us; advertise HSTS to browsers
-                    # so they pin HTTPS for two years (incl. subdomains). Added at the HCM level
-                    # so it is applied to every response regardless of route.
-                    response_headers_to_add:
-                      - header:
-                          key: "Strict-Transport-Security"
-                          value: "max-age=63072000; includeSubDomains"
                     http_filters:
                       - name: envoy.filters.http.lua        # DEC-0021: correlation id — honor client's, else mint from request id
                         typed_config:
@@ -100,6 +93,8 @@ data:
                           domains: ["*"]
                           response_headers_to_add:
                             - header: { key: "X-Correlation-Id", value: "%REQ(X-CORRELATION-ID)%" }
+                            # HSTS: pin HTTPS for 2 years (ingress-nginx terminates TLS in front of us).
+                            - header: { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }
                           routes:
                             # web app is on Vercel; only /api/* and /.well-known/ are served here.
                             # Auth endpoints (public, no JWT) — rate-limited to ~5 req/min, burst 20,
