@@ -1,6 +1,12 @@
 # One-shot Job that runs deploy/scripts/reset-data.sql against the Neon DB shared by all services.
 # It reads DB credentials from the existing `fs-db` Secret — no credentials live in this file.
 #
+# PREREQUISITE (one-time): the OKE nodes are arm64 and pull anonymously from ghcr.io/piraho, so the
+# psql image must live there and be PUBLIC. Mirror it once with the `mirror-psql` workflow:
+#   GitHub -> fs-infra -> Actions -> "mirror-psql" -> Run workflow
+#   then make the new package PUBLIC: piraho packages -> fs-psql -> Package settings -> Public.
+# (A Docker Hub image such as postgres:16-alpine is NOT pullable by the nodes -> ImageInspectError.)
+#
 # Usage (from deploy/scripts/):
 #   kubectl -n familyshare create configmap fs-reset-data-sql --from-file=reset-data.sql=./reset-data.sql
 #   kubectl -n familyshare apply -f reset-data.job.yaml
@@ -24,7 +30,8 @@ spec:
       restartPolicy: Never
       containers:
         - name: psql
-          image: postgres:16-alpine
+          # Mirrored from postgres:16-alpine into GHCR (multi-arch incl. arm64) — see mirror-psql.yml.
+          image: ghcr.io/piraho/fs-psql:16
           command: ["/bin/sh", "-c"]
           args:
             - |

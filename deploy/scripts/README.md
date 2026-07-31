@@ -21,13 +21,32 @@ PGPASSWORD='<pw>' psql \
   -v ON_ERROR_STOP=1 -f reset-data.sql
 ```
 
-Credentials come from the Neon dashboard, or from the cluster secret:
+Credentials come from the Neon dashboard, or from the cluster secret. No local `psql`? Use your
+local Docker (it can pull Docker Hub images even though the arm64 OKE nodes can't):
 
 ```bash
-kubectl -n familyshare get secret fs-db -o jsonpath='{.data.DATABASE_URL}' | base64 -d
+NS=familyshare
+URL=$(kubectl -n $NS get secret fs-db -o jsonpath='{.data.DATABASE_URL}'      | base64 -d)
+USR=$(kubectl -n $NS get secret fs-db -o jsonpath='{.data.DATABASE_USER}'     | base64 -d)
+PW=$( kubectl -n $NS get secret fs-db -o jsonpath='{.data.DATABASE_PASSWORD}' | base64 -d)
+HOST=$(printf '%s' "$URL" | sed -E 's#jdbc:postgresql://([^/]+)/.*#\1#')
+docker run --rm -e PGPASSWORD="$PW" -v "$PWD/reset-data.sql:/reset-data.sql:ro" \
+  postgres:16-alpine \
+  psql "host=$HOST dbname=neondb user=$USR sslmode=require" -v ON_ERROR_STOP=1 -f /reset-data.sql
 ```
 
 ### Option B — run it in-cluster as a Job (no local psql; uses the `fs-db` secret)
+
+**One-time prerequisite:** the OKE nodes are arm64 and pull anonymously from `ghcr.io/piraho`, so the
+psql image must be mirrored there and made public — a Docker Hub image gives `ImageInspectError` on
+the node. Run the mirror workflow once:
+
+1. GitHub → **fs-infra → Actions → "mirror-psql" → Run workflow** (defaults mirror `postgres:16-alpine`
+   → `ghcr.io/piraho/fs-psql:16`, arm64 included).
+2. Make the new package **public**: piraho packages → `fs-psql` → *Package settings → Change
+   visibility → Public* (the cluster pulls with no imagePullSecret).
+
+Then run the Job:
 
 ```bash
 kubectl -n familyshare create configmap fs-reset-data-sql --from-file=reset-data.sql=./reset-data.sql
@@ -36,8 +55,8 @@ kubectl -n familyshare logs -f job/fs-reset-data                              # 
 kubectl -n familyshare delete job/fs-reset-data configmap/fs-reset-data-sql   # cleanup
 ```
 
-The Job reads DB credentials from the existing `fs-db` Secret — no credentials are stored in these
-files.
+The Job reads DB credentials from the existing `fs-db` Secret and pulls `ghcr.io/piraho/fs-psql:16`
+— no credentials are stored in these files.
 
 ### After a reset
 
