@@ -1,0 +1,85 @@
+name: status-sync
+# Refreshes the "Live production status" block in STATUS.md:
+#   - what image (git SHA) each service is actually running on OKE,
+#   - ready replicas,
+#   - whether that running image == the newest image built from main (GHCR :latest).
+# Uses the OCI secrets already configured for deploys + anonymous reads of the
+# (public) GHCR packages. No extra tokens. fs-infra is public, so Actions minutes
+# here are free.
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "17 * * * *"   # hourly; use "Run workflow" for an instant refresh
+permissions:
+  contents: write
+concurrency:
+  group: status-sync
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install & configure OCI CLI
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          curl -L https://raw.githubusercontent.com/oracle/oci-cli/master/scripts/install/install.sh | bash -s -- --accept-all-defaults
+          echo "${HOME}/bin" >> "$GITHUB_PATH"
+          mkdir -p "$HOME/.oci"
+          printf '%s\n' "$OCI_CLI_KEY_CONTENT" > "$HOME/.oci/oci_api_key.pem"; chmod 600 "$HOME/.oci/oci_api_key.pem"
+          { echo "[DEFAULT]"; echo "user=$OCI_CLI_USER"; echo "fingerprint=$OCI_CLI_FINGERPRINT";
+            echo "tenancy=$OCI_CLI_TENANCY"; echo "region=$OCI_CLI_REGION";
+            echo "key_file=$HOME/.oci/oci_api_key.pem"; } > "$HOME/.oci/config"; chmod 600 "$HOME/.oci/config"
+
+      - name: Configure kubeconfig
+        env:
+          OKE_CLUSTER_OCID: ${{ secrets.OKE_CLUSTER_OCID }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+        run: |
+          mkdir -p "$HOME/.kube"
+          oci ce cluster create-kubeconfig --cluster-id "$OKE_CLUSTER_OCID" \
+            --region "$OCI_CLI_REGION" --file "$HOME/.kube/config" \
+            --token-version 2.0.0 --kube-endpoint PUBLIC_ENDPOINT
+
+      - name: Build live status table
+        run: |
+          NS=familyshare
+          SERVICES="fs-identity fs-family fs-sharing fs-profile fs-calendar fs-escalation fs-notification fs-media fs-integration"
+          {
+            echo "<!-- LIVE:START -->"
+            echo "_Live status — last synced $(date -u '+%Y-%m-%d %H:%M UTC') (auto). Trigger \`status-sync\` to refresh now._"
+            echo
+            echo "| Service | Ready | Running in prod (image) | Matches latest build? |"
+            echo "|---------|:-----:|-------------------------|:---------------------:|"
+            for s in $SERVICES; do
+              img=$(kubectl -n "$NS" get deploy "$s" -o jsonpath='{.spec.template.spec.containers[0].image}' 2>/dev/null)
+              tag=${img##*:}; [ -n "$tag" ] || tag="—"
+              ready=$(kubectl -n "$NS" get deploy "$s" -o jsonpath='{.status.readyReplicas}' 2>/dev/null); ready=${ready:-0}
+              want=$(kubectl -n "$NS" get deploy "$s" -o jsonpath='{.spec.replicas}' 2>/dev/null); want=${want:-0}
+              tok=$(curl -s "https://ghcr.io/token?scope=repository:piraho/$s:pull" | jq -r '.token // empty')
+              acc='Accept: application/vnd.oci.image.index.v1+json'
+              ddep=$(curl -sI -H "Authorization: Bearer $tok" -H "$acc" "https://ghcr.io/v2/piraho/$s/manifests/$tag"    | tr -d '\r' | awk -F': ' 'tolower($1)=="docker-content-digest"{print $2}')
+              dlat=$(curl -sI -H "Authorization: Bearer $tok" -H "$acc" "https://ghcr.io/v2/piraho/$s/manifests/latest" | tr -d '\r' | awk -F': ' 'tolower($1)=="docker-content-digest"{print $2}')
+              if [ -n "$ddep" ] && [ "$ddep" = "$dlat" ]; then sync="✅ latest"; elif [ -z "$ddep" ]; then sync="❔ n/a"; else sync="⬆️ behind"; fi
+              if printf '%s' "$tag" | grep -qE '^[0-9a-f]{40}$'; then disp="[\`${tag:0:7}\`](https://github.com/piraho/$s/commit/$tag)"; else disp="\`$tag\`"; fi
+              echo "| **$s** | $ready/$want | $disp | $sync |"
+            done
+            echo "<!-- LIVE:END -->"
+          } > /tmp/live.md
+          awk '/<!-- LIVE:START -->/{system("cat /tmp/live.md"); skip=1} /<!-- LIVE:END -->/{skip=0; next} !skip' STATUS.md > /tmp/STATUS.md
+          mv /tmp/STATUS.md STATUS.md
+
+      - name: Commit if changed
+        run: |
+          git config user.name "familyshare-bot"
+          git config user.email "familyshare07122026@gmail.com"
+          git add STATUS.md
+          git diff --cached --quiet || git commit -m "chore: sync live prod status [skip ci]"
+          git push

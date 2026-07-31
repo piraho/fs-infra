@@ -1,14 +1,26 @@
-# FamilyShare — CI/CD Status
+# FamilyShare — CI/CD & Production Status
 
 **Live API:** `https://163-192-201-183.sslip.io`  ·  **Cluster:** OCI OKE `us-chicago-1` (Always‑Free)
 
-Each service's **`cd`** pipeline runs: **build & test → build `linux/arm64` image → push to GHCR → `helm upgrade` on OKE.**
+---
 
-- 🟢 **Green badge** = latest run built the image, pushed it to GHCR, and deployed it successfully.
-- 🔴 Red badge → click it to see which step failed (build / push / deploy).
-- **Image** link = that service's GHCR package — its **tags** and **“Published” timestamp** are the proof the new image was pushed.
+## 🟢 Live production status (what's actually running on OKE)
 
-> Badges render for anyone signed in with access to the (private) service repos.
+Auto-refreshed hourly by the [`status-sync`](https://github.com/piraho/fs-infra/actions/workflows/status-sync.yml) workflow (run it manually for an instant refresh). It reads the running image tag (the deployed **git SHA**, linked to its commit) straight from the cluster, and compares its digest to the newest image built from `main` (GHCR `:latest`).
+
+- **Running in prod** = the commit currently serving traffic.
+- **Matches latest build?** — ✅ `latest` = prod is on the newest image built from `main`; ⬆️ `behind` = a newer image exists that prod hasn't rolled out yet.
+
+<!-- LIVE:START -->
+_Not synced yet — run the **status-sync** workflow once (Actions → status-sync → Run workflow)._
+<!-- LIVE:END -->
+
+---
+
+## ⚙️ Pipelines (build → push → deploy, per service)
+
+Each service's **`cd`**: build & test → build `linux/arm64` image → push to GHCR → `helm upgrade` on OKE.
+🟢 green = the latest `main` push built, pushed, and deployed OK. The **Image** link is the GHCR package (its *Published* time = when the image was last pushed).
 
 | Service | Port | Build → Push → Deploy | Image (GHCR) |
 |---------|:----:|-----------------------|--------------|
@@ -24,7 +36,7 @@ Each service's **`cd`** pipeline runs: **build & test → build `linux/arm64` im
 
 ## Handy links
 - **All images at a glance** (with *Published* times): <https://github.com/orgs/piraho/packages>
+- **Refresh live status now**: <https://github.com/piraho/fs-infra/actions/workflows/status-sync.yml> → **Run workflow**
 - **E2E smoke lint** (fs-e2e): <https://github.com/piraho/fs-e2e/actions>
-- **This chart source**: [`fs-infra`](https://github.com/piraho/fs-infra) · [`deploy/`](./deploy)
 
-_A push to any service's `main` re-runs its `cd`; the badge flips green when the new image is built, pushed, and rolled out._
+_A push to any service's `main` re-runs its `cd`; the badge flips green when the new image is built, pushed, and rolled out — then `status-sync` shows it live above._
