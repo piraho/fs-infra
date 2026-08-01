@@ -85,7 +85,9 @@ envFrom:
 
 - **Rotate the Twilio API-key secret** you pasted into chat — it's in the conversation log. Create a
   new API key in the Twilio Console, store *that* one in the vault.
-- The Terraform is a reviewed template; OCI policy verbs / dynamic-group rules may need a small tweak
-  for your tenancy. It was authored here but not applied — run `terraform plan` and read it first.
+- **Applied & verified** on `us-chicago-1` — ESO syncs `fs-twilio` + `fs-email`. The manifests use
+  API `external-secrets.io/v1` (ESO v2.x no longer serves `v1beta1`). A `read vaults` grant was added
+  to the policy to clear ESO's store-validation warning — `terraform apply` again to pick it up
+  (secret *reads* already work without it, via `secret-family`).
 - Rollback: `kubectl delete -f deploy/secrets/external-secrets.yaml` removes the sync (and the K8s
   Secrets it owns); the Vault values stay put.

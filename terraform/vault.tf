@@ -70,6 +70,9 @@ resource "oci_identity_policy" "eso_read_secrets" {
   statements = [
     "Allow dynamic-group ${oci_identity_dynamic_group.oke_nodes.name} to read secret-family in compartment id ${var.compartment_ocid}",
     "Allow dynamic-group ${oci_identity_dynamic_group.oke_nodes.name} to use keys in compartment id ${var.compartment_ocid}",
+    # ESO's store validation calls GetVault (KMS management) — needs `read vaults`, else the
+    # ClusterSecretStore shows ValidationUnknown (secret reads still work via secret-family above).
+    "Allow dynamic-group ${oci_identity_dynamic_group.oke_nodes.name} to read vaults in compartment id ${var.compartment_ocid}",
   ]
 }
 
