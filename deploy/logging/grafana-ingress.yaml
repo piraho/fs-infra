@@ -1,0 +1,39 @@
+# OPTIONAL: public HTTPS for Grafana via the existing ingress-nginx + cert-manager.
+#
+# Rides the SAME ingress-nginx LoadBalancer the API already uses (ingressClassName: nginx) —
+# this does NOT create a second LoadBalancer, so it stays within the one free flexible LB.
+#
+# Before applying:
+#   1. Confirm the host resolves to the ingress-nginx LB IP. The sslip.io host below encodes
+#      163.192.201.183 (the API LB IP) — replace if your LB IP differs, or use a real DNS name
+#      whose A record points at that IP, or the HTTP-01 ACME challenge will fail (no cert).
+#   2. Loki-stack must already be installed (Service `loki-grafana` on :80 in namespace logging).
+#
+# If you only need occasional access, skip this file and use `kubectl port-forward` (see README).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: loki-grafana
+  namespace: logging
+  labels:
+    app.kubernetes.io/name: loki-grafana
+    app.kubernetes.io/part-of: familyshare
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod   # letsencrypt-staging while testing
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - grafana.163-192-201-183.sslip.io   # <-- REPLACE with your Grafana hostname
+      secretName: grafana-tls                # cert-manager writes the issued cert here
+  rules:
+    - host: grafana.163-192-201-183.sslip.io # <-- REPLACE with your Grafana hostname
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: loki-grafana
+                port:
+                  number: 80
