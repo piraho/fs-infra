@@ -98,6 +98,11 @@ data:
                             # HSTS: pin HTTPS for 2 years (ingress-nginx terminates TLS in front of us).
                             - header: { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" }
                           routes:
+                            # Internal, service-to-service endpoints are NEVER reachable from the edge:
+                            # reject any /api/<service>/internal/* so contact PII and delivery injection stay
+                            # in-cluster only. First match wins, so this precedes every service route.
+                            - match: { safe_regex: { regex: "/api/[^/]+/internal/.*" } }
+                              direct_response: { status: 403, body: { inline_string: "not found" } }
                             # web app is on Vercel; only /api/* and /.well-known/ are served here.
                             # Auth endpoints (public, no JWT) — rate-limited to ~5 req/min, burst 20,
                             # per Envoy pod, to blunt credential brute force. These MUST precede the

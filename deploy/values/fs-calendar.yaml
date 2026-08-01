@@ -7,6 +7,9 @@ env:
   JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
   FAMILY_URL: http://fs-family:8082
   ESCALATION_URL: http://fs-escalation:8086
+  # Calendar reminder engine fans out to notification (in-app/SMS) + identity (contact resolution).
+  NOTIFICATION_URL: http://fs-notification:8087
+  IDENTITY_URL: http://fs-identity:8081
   # Neon free tier caps total connections; keep each service's pool tiny.
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
 

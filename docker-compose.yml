@@ -58,6 +58,8 @@ services:
       JWKS_URI: http://identity:8081/.well-known/jwks.json
       FAMILY_URL: http://family:8082
       ESCALATION_URL: http://escalation:8086
+      NOTIFICATION_URL: http://notification:8087
+      IDENTITY_URL: http://identity:8081
     ports: [ "8085:8085" ]
     depends_on:
       identity: { condition: service_healthy }
