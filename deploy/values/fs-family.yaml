@@ -8,6 +8,7 @@ env:
   JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
   # Neon free tier caps total connections; keep each service's pool tiny.
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+  INTERNAL_AUTH_ENFORCE: "true"   # reject /internal/* without a valid X-Internal-Key (C1/C3/H3)
 
 # DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD come from Secret fs-db.
 envFrom:
