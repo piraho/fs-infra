@@ -83,6 +83,7 @@ services:
       DATABASE_PASSWORD: familyshare
       JWKS_URI: http://identity:8081/.well-known/jwks.json
       FAMILY_URL: http://family:8082
+      AI_URL: http://ai:8090
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
     ports: [ "8087:8087" ]
