@@ -20,6 +20,7 @@ env:
   # OCI_BUCKET_MEDIA: familyshare-media           # not versioned
   # Neon free tier caps total connections; keep each service's pool tiny.
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+  INTERNAL_AUTH_ENFORCE: "true"   # provider now (H5 re-key endpoint): reject /internal/* without X-Internal-Key
 
 # fs-db       -> DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD
 # fs-media-s3 -> S3_ENDPOINT / S3_PUBLIC_ENDPOINT / S3_BUCKET /
