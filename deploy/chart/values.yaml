@@ -37,27 +37,31 @@ port: 8080
 # Plain, non-secret environment variables (rendered as name/value pairs).
 # Point at in-cluster DNS in the per-service file, e.g. FAMILY_URL: http://fs-family:8082
 #
-# JAVA_TOOL_OPTIONS is a chart-wide default so every service's JVM heap fits the
-# 512Mi memory limit (MaxRAMPercentage=70% -> ~358Mi max heap). Helm deep-merges
-# the per-service env keys (JWKS_URI, *_URL, Hikari pool size, ...) on top of
-# this map, so JAVA_TOOL_OPTIONS is preserved for every release.
+# JAVA_TOOL_OPTIONS is a chart-wide default so every service's JVM heap fits its
+# memory limit. At 70% of 512Mi the heap was ~358Mi, leaving only ~154Mi for
+# non-heap (metaspace + thread stacks + code cache + direct buffers) — not enough
+# for Spring Boot + Hibernate + Tomcat, so fs-identity was OOMKilled. With the 768Mi
+# limit below, 60% caps heap at ~460Mi and leaves ~300Mi for non-heap. Helm
+# deep-merges the per-service env keys (JWKS_URI, *_URL, ...) on top of this map.
 env:
-  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=70.0"
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=60.0"
 
 # List of k8s Secret names. EVERY key in each Secret is projected as an env var
 # (envFrom.secretRef). fs-db provides DATABASE_URL/USER/PASSWORD; fs-smtp provides
 # SMTP_HOST/PORT; fs-media-s3 provides S3_*. See deploy/base/secrets.example.yaml.
 envFrom: []
 
-# Tight defaults for the OCI Always-Free cluster (4 OCPU / 24 GB Arm shared by
-# ~11 pods). Requests keep the scheduler honest; limits cap a noisy service.
+# Sized for the JVM services (Spring Boot + Hibernate + Tomcat). 512Mi OOM-killed
+# fs-identity (heap + non-heap exceeded the limit), so the limit is 768Mi with heap
+# capped at 60% via JAVA_TOOL_OPTIONS above. Nodes have ~20Gi allocatable each, so
+# the fleet's ~4Gi of memory requests fits with plenty of headroom.
 resources:
   requests:
     cpu: 100m
-    memory: 256Mi
+    memory: 384Mi
   limits:
     cpu: 500m
-    memory: 512Mi
+    memory: 768Mi
 
 # Readiness + liveness both hit Spring Boot Actuator on the service port.
 # Generous initialDelay: JVM + Flyway migrations on cold start.
