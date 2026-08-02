@@ -1,0 +1,16 @@
+# fs-ai — AI gateway (OpenAI/Claude/Gemini + exact & semantic response cache). DNS: http://fs-ai:8090.
+# Requires the pgvector extension in the DB (Neon: enable it once) for the semantic cache.
+image:
+  repository: fs-ai
+port: 8090
+
+env:
+  JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
+  # Neon free tier caps total connections; keep each service's pool tiny.
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+
+# DATABASE_* from Secret fs-db; provider API keys (OPENAI_API_KEY / ANTHROPIC_API_KEY / GEMINI_API_KEY)
+# from Secret fs-ai-keys (OCI Vault via ESO — see deploy/secrets/external-secrets.yaml).
+envFrom:
+  - fs-db
+  - fs-ai-keys

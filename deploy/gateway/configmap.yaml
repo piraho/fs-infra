@@ -187,6 +187,8 @@ data:
                               route: { cluster: media, prefix_rewrite: "/" }
                             - match: { prefix: "/api/integration/" }
                               route: { cluster: integration, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/ai/" }
+                              route: { cluster: ai, prefix_rewrite: "/" }
       # Envoy's config loader does not support YAML merge keys (<<: *anchor), so each
       # cluster is spelled out explicitly. All share: type STRICT_DNS, connect_timeout 2s.
       # Addresses are k8s Service DNS names inside the `familyshare` namespace.
@@ -236,3 +238,8 @@ data:
           connect_timeout: 2s
           load_assignment: { cluster_name: integration, endpoints: [ { lb_endpoints: [
             { endpoint: { address: { socket_address: { address: fs-integration, port_value: 8089 } } } } ] } ] }
+        - name: ai
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: ai, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-ai, port_value: 8090 } } } } ] } ] }

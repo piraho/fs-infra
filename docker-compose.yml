@@ -2,7 +2,7 @@
 name: familyshare
 services:
   postgres:
-    image: postgres:16
+    image: pgvector/pgvector:pg16   # postgres 16 + pgvector (superset) — needed by fs-ai's semantic cache
     environment: { POSTGRES_USER: familyshare, POSTGRES_PASSWORD: familyshare, POSTGRES_DB: familyshare }
     ports: [ "5432:5432" ]
     volumes: [ "pgdata:/var/lib/postgresql/data" ]
@@ -101,6 +101,18 @@ services:
     ports: [ "8089:8089" ]
     depends_on:
       identity: { condition: service_healthy }
+  ai:
+    build: ../fs-ai
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/familyshare
+      DATABASE_USER: familyshare
+      DATABASE_PASSWORD: familyshare
+      JWKS_URI: http://identity:8081/.well-known/jwks.json
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}       # set in your shell / .env for local calls
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+    ports: [ "8090:8090" ]
+    depends_on: { postgres: { condition: service_healthy }, identity: { condition: service_healthy } }
   media:
     build: ../fs-media
     environment:
