@@ -7,6 +7,17 @@ env:
   JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
   FAMILY_URL: http://fs-family:8082
   SHARING_URL: http://fs-sharing:8083
+  # E2EE family files move bytes browser<->storage via S3-compat PRESIGNED URLs (fs-media-s3 secret below),
+  # so the server stays zero-knowledge. Point fs-media-s3 at the OCI Object Storage S3-compatible endpoint.
+  #
+  # The OCI-NATIVE SDK layer (versioning + lifecycle + download-by-version) is OFF by default: enabling it
+  # makes the pod create buckets + call OCI at startup via instance principal, which needs an OKE dynamic
+  # group + object-storage IAM policy first. Flip to "true" only after that is in place.
+  OCI_STORAGE_ENABLED: "false"
+  # OCI_REGION: us-chicago-1
+  # OCI_COMPARTMENT_OCID: ocid1.compartment.oc1..xxxx
+  # OCI_BUCKET_DOCUMENTS: familyshare-documents   # versioned
+  # OCI_BUCKET_MEDIA: familyshare-media           # not versioned
   # Neon free tier caps total connections; keep each service's pool tiny.
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
 
