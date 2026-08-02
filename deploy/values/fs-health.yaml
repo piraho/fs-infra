@@ -26,3 +26,4 @@ envFrom:
   - fs-db
   - fs-media-s3
   - fs-health-keys
+  - fs-internal-auth   # INTERNAL_API_KEY — gates /internal/* (security review C1/C3/H3)

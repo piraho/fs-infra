@@ -12,3 +12,4 @@ env:
 # DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD come from Secret fs-db.
 envFrom:
   - fs-db
+  - fs-internal-auth   # INTERNAL_API_KEY — gates /internal/* (security review C1/C3/H3)

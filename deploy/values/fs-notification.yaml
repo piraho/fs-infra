@@ -18,3 +18,4 @@ envFrom:
   - fs-db
   - fs-smtp
   - fs-twilio
+  - fs-internal-auth   # INTERNAL_API_KEY — gates /internal/* (security review C1/C3/H3)

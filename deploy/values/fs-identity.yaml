@@ -36,3 +36,4 @@ env:
 envFrom:
   - fs-db
   - fs-jwt
+  - fs-internal-auth   # INTERNAL_API_KEY — gates /internal/* (security review C1/C3/H3)
