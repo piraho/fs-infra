@@ -34,6 +34,9 @@ locals {
     "fs-email-api-base",       # provider base URL (if API-based)
     "fs-email-api-key",        # provider API key/token
     "fs-email-from",           # From address, e.g. "no-reply@familyshare.app"
+    "fs-ai-openai-api-key",    # OpenAI API key       (fs-ai gateway)
+    "fs-ai-anthropic-api-key", # Anthropic/Claude key (fs-ai gateway)
+    "fs-ai-gemini-api-key",    # Google Gemini key    (fs-ai gateway)
   ]
 }
 
