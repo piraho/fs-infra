@@ -37,6 +37,7 @@ locals {
     "fs-ai-openai-api-key",    # OpenAI API key       (fs-ai gateway)
     "fs-ai-anthropic-api-key", # Anthropic/Claude key (fs-ai gateway)
     "fs-ai-gemini-api-key",    # Google Gemini key    (fs-ai gateway)
+    "fs-health-master-key",    # base64(32 random bytes) — PHI envelope-encryption master key (fs-health)
   ]
 }
 

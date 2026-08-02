@@ -1,0 +1,25 @@
+# fs-health — Personal Health Record + medication management (PHI). DNS: http://fs-health:8092.
+image:
+  repository: fs-health
+port: 8092
+
+env:
+  JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
+  FAMILY_URL: http://fs-family:8082
+  IDENTITY_URL: http://fs-identity:8081
+  NOTIFICATION_URL: http://fs-notification:8087
+  AI_URL: http://fs-ai:8090
+  # Clinical documents live in their OWN private bucket (server-side encrypted), separate from fs-media.
+  HEALTH_S3_BUCKET: familyshare-clinical
+  # AI parsing of PHI is OFF until a BAA / zero-retention vision endpoint is configured on fs-ai (PHI_API_KEY).
+  HEALTH_AI_PARSE_ENABLED: "false"
+  # Neon free tier caps total connections; keep each service's pool tiny.
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+
+# fs-db          -> DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD
+# fs-media-s3    -> S3_ENDPOINT / S3_PUBLIC_ENDPOINT / S3_ACCESS_KEY / S3_SECRET_KEY (reused; bucket overridden above)
+# fs-health-keys -> HEALTH_MASTER_KEY (envelope-encryption master key for PHI; from OCI Vault via ESO)
+envFrom:
+  - fs-db
+  - fs-media-s3
+  - fs-health-keys
