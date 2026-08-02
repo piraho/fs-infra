@@ -12,18 +12,18 @@ Auto-refreshed hourly by the [`status-sync`](https://github.com/piraho/fs-infra/
 - **Matches latest build?** — ✅ `latest` = prod is on the newest image built from `main`; ⬆️ `behind` = a newer image exists that prod hasn't rolled out yet.
 
 <!-- LIVE:START -->
-_Live status — last synced 2026-08-02 19:38 UTC (auto). Trigger `status-sync` to refresh now._
+_Live status — last synced 2026-08-02 21:13 UTC (auto). Trigger `status-sync` to refresh now._
 
 | Service | Ready | Running in prod (image) | Matches latest build? |
 |---------|:-----:|-------------------------|:---------------------:|
-| **fs-identity** | 1/1 | [`aa169c4`](https://github.com/piraho/fs-identity/commit/aa169c4f393ab0a42f99d0aa656c1f326218f4ad) | ✅ latest |
-| **fs-family** | 1/1 | [`18ee9cb`](https://github.com/piraho/fs-family/commit/18ee9cbebfba4d39c4a3363b7f628ff4722c43ae) | ✅ latest |
+| **fs-identity** | 1/1 | [`edbe083`](https://github.com/piraho/fs-identity/commit/edbe0834f20114377efc16955ac700cac9f98971) | ✅ latest |
+| **fs-family** | 1/1 | [`fbc0055`](https://github.com/piraho/fs-family/commit/fbc005522db8a11396f2f558dc862772ce2be93d) | ✅ latest |
 | **fs-sharing** | 1/1 | [`1f2219d`](https://github.com/piraho/fs-sharing/commit/1f2219db6f17fcb5a25ceb7ce9234c381db5847c) | ✅ latest |
 | **fs-profile** | 1/1 | [`2e633a6`](https://github.com/piraho/fs-profile/commit/2e633a692d581d8b3509432d4cef22402c2bc390) | ✅ latest |
 | **fs-calendar** | 1/1 | [`b0b99aa`](https://github.com/piraho/fs-calendar/commit/b0b99aa71b04ae0db3e08aeffda025a5cae320fd) | ✅ latest |
 | **fs-escalation** | 1/1 | [`1081aa6`](https://github.com/piraho/fs-escalation/commit/1081aa6445066580c4100066ca46ab7a16ba585e) | ✅ latest |
 | **fs-notification** | 1/1 | [`05da28f`](https://github.com/piraho/fs-notification/commit/05da28f34cfcef8e4fb5cb50b2e5dfd8f2715c1e) | ✅ latest |
-| **fs-media** | 1/1 | [`b1fdd84`](https://github.com/piraho/fs-media/commit/b1fdd84da1e8354993c9f9b58464820c98188141) | ✅ latest |
+| **fs-media** | 1/1 | [`2e91d6e`](https://github.com/piraho/fs-media/commit/2e91d6e0640fac0d084629c224bec5ce0276c123) | ✅ latest |
 | **fs-integration** | 1/1 | [`76ecdfc`](https://github.com/piraho/fs-integration/commit/76ecdfce1ae99aee354efd1b85b8252da0f75316) | ✅ latest |
 <!-- LIVE:END -->
 
