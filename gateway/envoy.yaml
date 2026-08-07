@@ -78,6 +78,8 @@ static_resources:
                           route: { cluster: media, prefix_rewrite: "/" }
                         - match: { prefix: "/api/integration/" }
                           route: { cluster: integration, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/assistant/" }
+                          route: { cluster: assistant, prefix_rewrite: "/" }
                         - match: { prefix: "/" }
                           route: { cluster: web }
   # Envoy's config loader does not support YAML merge keys (<<: *anchor), so each
@@ -128,6 +130,11 @@ static_resources:
       connect_timeout: 2s
       load_assignment: { cluster_name: integration, endpoints: [ { lb_endpoints: [
         { endpoint: { address: { socket_address: { address: integration, port_value: 8089 } } } } ] } ] }
+    - name: assistant
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment: { cluster_name: assistant, endpoints: [ { lb_endpoints: [
+        { endpoint: { address: { socket_address: { address: assistant, port_value: 8091 } } } } ] } ] }
     - name: web
       type: STRICT_DNS
       connect_timeout: 2s

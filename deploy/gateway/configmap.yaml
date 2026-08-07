@@ -188,6 +188,8 @@ data:
                               route: { cluster: media, prefix_rewrite: "/" }
                             - match: { prefix: "/api/integration/" }
                               route: { cluster: integration, prefix_rewrite: "/" }
+                            - match: { prefix: "/api/assistant/" }
+                              route: { cluster: assistant, prefix_rewrite: "/" }
                             - match: { prefix: "/api/ai/" }
                               route: { cluster: ai, prefix_rewrite: "/" }
                             - match: { prefix: "/api/health/" }
@@ -251,3 +253,8 @@ data:
           connect_timeout: 2s
           load_assignment: { cluster_name: ai, endpoints: [ { lb_endpoints: [
             { endpoint: { address: { socket_address: { address: fs-ai, port_value: 8090 } } } } ] } ] }
+        - name: assistant
+          type: STRICT_DNS
+          connect_timeout: 2s
+          load_assignment: { cluster_name: assistant, endpoints: [ { lb_endpoints: [
+            { endpoint: { address: { socket_address: { address: fs-assistant, port_value: 8091 } } } } ] } ] }
