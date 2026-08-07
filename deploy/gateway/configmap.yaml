@@ -64,6 +64,7 @@ data:
                             - match: { prefix: "/api/identity/v1/tokens" }
                             - match: { prefix: "/api/identity/v1/verifications" }      # email verification code (public)
                             - match: { prefix: "/api/identity/v1/password-resets" }    # password reset code (public)
+                            - match: { prefix: "/api/identity/v1/webauthn/authentication" }  # usernameless passkey sign-in (pre-auth; registration/credentials stay JWT-guarded)
                             - match: { prefix: "/.well-known/" }
                             - match: { prefix: "/api/family/v1/slug-resolutions/" }
                             - match: { prefix: "/api/family/v1/invitations/" }   # token-in-path proves invite
