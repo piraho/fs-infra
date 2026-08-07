@@ -4,7 +4,7 @@
 # TLS is terminated by ingress-nginx using a Let's Encrypt cert that cert-manager
 # obtains automatically (see clusterissuer.yaml) and stores in the secret named below.
 #
-# REPLACE api.example.com (in BOTH spec.tls[].hosts and spec.rules[].host) with the
+# REPLACE 163-192-201-183.sslip.io (in BOTH spec.tls[].hosts and spec.rules[].host) with the
 # real API hostname, e.g. api.familyshare.com. The A record for that host MUST point
 # at the ingress-nginx LoadBalancer's external IP BEFORE applying, or the HTTP-01
 # ACME challenge cannot complete and no certificate will be issued.
@@ -24,10 +24,10 @@ spec:
   ingressClassName: nginx
   tls:
     - hosts:
-        - api.example.com          # <-- REPLACE with the real API hostname
+        - 163-192-201-183.sslip.io          # <-- REPLACE with the real API hostname
       secretName: api-familyshare-tls   # cert-manager writes the issued cert here
   rules:
-    - host: api.example.com        # <-- REPLACE with the real API hostname
+    - host: 163-192-201-183.sslip.io        # <-- REPLACE with the real API hostname
       http:
         paths:
           - path: /

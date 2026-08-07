@@ -16,7 +16,7 @@ spec:
   acme:
     # Production ACME endpoint — issues browser-trusted certs (rate limited).
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: devops@example.com            # <-- REPLACE with a real ops contact address
+    email: familyshare07122026@gmail.com # ops/ACME contact (from OCI account)
     privateKeySecretRef:
       name: letsencrypt-prod-account-key  # ACME account key (created by cert-manager)
     solvers:
@@ -34,7 +34,7 @@ metadata:
 spec:
   acme:
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: devops@example.com            # <-- REPLACE with a real ops contact address
+    email: familyshare07122026@gmail.com # ops/ACME contact (from OCI account)
     privateKeySecretRef:
       name: letsencrypt-staging-account-key
     solvers:
