@@ -1,7 +1,7 @@
 # FamilyShare — Kubernetes deploy layer (Helm)
 
 Manifests to run the FamilyShare backend on an **Oracle Cloud Always-Free**
-Kubernetes cluster (4 OCPU / 24 GB Arm, shared by ~11 pods). Nine Spring Boot
+Kubernetes cluster (4 OCPU / 24 GB Arm, shared by ~11 pods). Ten Spring Boot
 services + an Envoy edge gateway, all in the `familyshare` namespace. The browser
 app is on Vercel and proxies same-origin `/api/*` to the cluster's edge.
 
@@ -20,14 +20,14 @@ Retargeted from the original OKE/OCIR plan to run cheaply on free tier:
 ```
 deploy/
   chart/                 generic Helm chart "familyshare-service" (one release per svc)
-  values/                per-service values (fs-identity.yaml ... fs-integration.yaml)
+  values/                per-service values (fs-identity.yaml ... fs-assistant.yaml)
   gateway/               Envoy gateway: configmap + deployment + service
   ingress/               cert-manager + ingress-nginx + Ingress (TLS lives here)
   base/                  namespace + secrets.example.yaml
   README.md              this file
 ```
 
-One chart, nine releases. The **release name is the object name** — deploy as
+One chart, ten releases. The **release name is the object name** — deploy as
 `fs-identity`, `fs-family`, … so in-cluster DNS resolves to `http://fs-<svc>:<port>`.
 
 | Service | Port | Secrets (envFrom) |
@@ -41,6 +41,7 @@ One chart, nine releases. The **release name is the object name** — deploy as
 | fs-notification | 8087 | fs-db, fs-smtp |
 | fs-media | 8088 | fs-db, fs-media-s3 |
 | fs-integration | 8089 | fs-db |
+| fs-assistant | 8091 | fs-internal-auth |
 | fs-gateway (Envoy) | 8080 | — |
 
 ## Prerequisites
@@ -139,7 +140,7 @@ the "values-bump PR" model — CI bumps `image.tag` and re-runs the upgrade.
 Deploy everything in one pass:
 
 ```bash
-for svc in identity family sharing profile calendar escalation notification media integration; do
+for svc in identity family sharing profile calendar escalation notification media integration assistant; do
   helm upgrade --install fs-$svc ./chart -n familyshare \
     -f values/fs-$svc.yaml \
     --set image.tag=<sha>

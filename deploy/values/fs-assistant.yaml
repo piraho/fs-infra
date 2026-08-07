@@ -1,0 +1,15 @@
+# fs-assistant — authenticated assistant orchestration (plan + confirmed execution). DNS: http://fs-assistant:8091.
+image:
+  repository: fs-assistant
+port: 8091
+
+env:
+  JWKS_URI: http://fs-identity:8081/.well-known/jwks.json
+  AI_URL: http://fs-ai:8090
+  FAMILY_URL: http://fs-family:8082
+  CALENDAR_URL: http://fs-calendar:8085
+  PROFILE_URL: http://fs-profile:8084
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
+
+envFrom:
+  - fs-internal-auth

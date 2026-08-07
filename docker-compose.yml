@@ -114,6 +114,22 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
     ports: [ "8090:8090" ]
     depends_on: { postgres: { condition: service_healthy }, identity: { condition: service_healthy } }
+  assistant:
+    build: ../fs-assistant
+    environment:
+      JWKS_URI: http://identity:8081/.well-known/jwks.json
+      AI_URL: http://ai:8090
+      FAMILY_URL: http://family:8082
+      CALENDAR_URL: http://calendar:8085
+      PROFILE_URL: http://profile:8084
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY:-familyshare-internal}
+    ports: [ "8091:8091" ]
+    depends_on:
+      identity: { condition: service_healthy }
+      ai: { condition: service_started }
+      family: { condition: service_started }
+      calendar: { condition: service_started }
+      profile: { condition: service_started }
   media:
     build: ../fs-media
     environment:
@@ -148,7 +164,7 @@ services:
     command: [ "envoy", "-c", "/etc/envoy/envoy.yaml" ]
     volumes: [ "./gateway/envoy.yaml:/etc/envoy/envoy.yaml:ro" ]
     ports: [ "8080:8080" ]
-    depends_on: [ identity, family, sharing, profile, calendar, escalation, web ]
+    depends_on: [ identity, family, sharing, profile, calendar, escalation, assistant, web ]
   web:
     build: ../fs-web
     # No API URLs: the app uses same-origin /api/* paths — serve it through the gateway (:8080).
