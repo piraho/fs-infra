@@ -11,11 +11,12 @@ env:
   AI_URL: http://fs-ai:8090
   # Clinical documents live in their OWN private bucket (server-side encrypted), separate from fs-media.
   HEALTH_S3_BUCKET: familyshare-clinical
-  # AI document-parsing: ON for TESTING, routed to the consumer Claude provider. For REAL PHI, switch the
-  # provider to a BAA / zero-retention profile (set PHI_API_KEY on fs-ai + HEALTH_AI_PARSE_PROVIDER=phi) —
-  # never feed real medical records to a consumer key.
+  # AI document-parsing for health docs: use Gemini by default for higher extraction quality.
+  # This setting applies only to fs-health document parsing; other services/features keep their own providers.
+  # For REAL PHI, route to a BAA / zero-retention profile (for example: HEALTH_AI_PARSE_PROVIDER=phi).
   HEALTH_AI_PARSE_ENABLED: "true"
-  HEALTH_AI_PARSE_PROVIDER: "anthropic"
+  HEALTH_AI_PARSE_PROVIDER: "gemini"
+  HEALTH_AI_PARSE_MODEL: "gemini-3.5-flash-lite"
   # Neon free tier caps total connections; keep each service's pool tiny.
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
 
