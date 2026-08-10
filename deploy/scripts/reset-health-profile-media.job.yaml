@@ -1,0 +1,52 @@
+# One-shot Job that runs deploy/scripts/reset-health-profile-media.sql against the Neon DB.
+# It reads DB credentials from the existing fs-db Secret.
+#
+# Usage (from deploy/scripts/):
+#   kubectl -n familyshare create configmap fs-reset-health-profile-media-sql \
+#     --from-file=reset-health-profile-media.sql=./reset-health-profile-media.sql
+#   kubectl -n familyshare apply -f reset-health-profile-media.job.yaml
+#   kubectl -n familyshare logs -f job/fs-reset-health-profile-media
+#   # when done:
+#   kubectl -n familyshare delete job/fs-reset-health-profile-media configmap/fs-reset-health-profile-media-sql
+#
+# WARNING: DESTRUCTIVE - truncates app tables in health/profile/media schemas.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: fs-reset-health-profile-media
+  namespace: familyshare
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 600
+  template:
+    metadata:
+      labels: { app: fs-reset-health-profile-media }
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: psql
+          image: ghcr.io/piraho/fs-psql:16
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -eu
+              HOST=$(printf '%s' "$DATABASE_URL" | sed -E 's#jdbc:postgresql://([^/]+)/.*#\1#')
+              DB=$(printf '%s' "$DATABASE_URL"   | sed -E 's#.*/([^/?]+).*#\1#')
+              echo "Targeted reset (health/profile/media) on database '$DB' host '$HOST' ..."
+              PGPASSWORD="$DATABASE_PASSWORD" psql \
+                "host=$HOST dbname=$DB user=$DATABASE_USER sslmode=require" \
+                -v ON_ERROR_STOP=1 -f /sql/reset-health-profile-media.sql
+              echo "Targeted reset complete."
+          env:
+            - name: DATABASE_URL
+              valueFrom: { secretKeyRef: { name: fs-db, key: DATABASE_URL } }
+            - name: DATABASE_USER
+              valueFrom: { secretKeyRef: { name: fs-db, key: DATABASE_USER } }
+            - name: DATABASE_PASSWORD
+              valueFrom:
+                { secretKeyRef: { name: fs-db, key: DATABASE_PASSWORD } }
+          volumeMounts:
+            - { name: sql, mountPath: /sql, readOnly: true }
+      volumes:
+        - name: sql
+          configMap: { name: fs-reset-health-profile-media-sql }
