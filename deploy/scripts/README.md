@@ -7,8 +7,9 @@ FamilyShare service, while keeping schemas + Flyway history so **no restart or r
 needed. All 10 service schemas are truncated: `identity, family, sharing, profile, media, calendar,
 escalation, notification, integration, health`.
 
-> ⚠️ **Destructive and irreversible.** Snapshot first — on Neon the fastest is *Create branch* in
+> ⚠️ **Destructive and irreversible.** Snapshot first — on Neon the fastest is _Create branch_ in
 > the dashboard (instant). Or a portable dump:
+>
 > ```bash
 > pg_dump "host=<neon-host> dbname=neondb user=neondb_owner sslmode=require" -Fc -f pre-reset.dump
 > ```
@@ -43,8 +44,8 @@ the node. Run the mirror workflow once:
 
 1. GitHub → **fs-infra → Actions → "mirror-psql" → Run workflow** (defaults mirror `postgres:16-alpine`
    → `ghcr.io/piraho/fs-psql:16`, arm64 included).
-2. Make the new package **public**: piraho packages → `fs-psql` → *Package settings → Change
-   visibility → Public* (the cluster pulls with no imagePullSecret).
+2. Make the new package **public**: piraho packages → `fs-psql` → _Package settings → Change
+   visibility → Public_ (the cluster pulls with no imagePullSecret).
 
 Then run the Job:
 

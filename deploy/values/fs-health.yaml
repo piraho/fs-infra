@@ -17,6 +17,11 @@ env:
   HEALTH_AI_PARSE_ENABLED: "true"
   HEALTH_AI_PARSE_PROVIDER: "gemini"
   HEALTH_AI_PARSE_MODEL: "gemini-3.5-flash-lite"
+  # Daily health-log photo parsing: Gemini first, then Anthropic fallback only when Gemini yields no rows.
+  HEALTH_AI_VITALS_PARSE_PROVIDER: "gemini"
+  HEALTH_AI_VITALS_PARSE_MODEL: "gemini-3.5-flash-lite"
+  HEALTH_AI_VITALS_PARSE_FALLBACK_PROVIDER: "anthropic"
+  HEALTH_AI_VITALS_PARSE_FALLBACK_MODEL: "claude-haiku-4-5"
   # Neon free tier caps total connections; keep each service's pool tiny.
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
 
@@ -27,4 +32,4 @@ envFrom:
   - fs-db
   - fs-media-s3
   - fs-health-keys
-  - fs-internal-auth   # INTERNAL_API_KEY — gates /internal/* (security review C1/C3/H3)
+  - fs-internal-auth # INTERNAL_API_KEY — gates /internal/* (security review C1/C3/H3)
