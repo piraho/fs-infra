@@ -13,6 +13,8 @@ services:
       DATABASE_URL: jdbc:postgresql://postgres:5432/familyshare
       DATABASE_USER: familyshare
       DATABASE_PASSWORD: familyshare
+      WEBAUTHN_RP_ID: localhost
+      WEBAUTHN_ORIGINS: http://localhost:8080
     ports: [ "8081:8081" ]
     depends_on: { postgres: { condition: service_healthy } }
     healthcheck: { test: [ "CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP" ], interval: 10s, retries: 20 }
@@ -167,6 +169,8 @@ services:
     depends_on: [ identity, family, sharing, profile, calendar, escalation, assistant, web ]
   web:
     build: ../fs-web
+    environment:
+      NEXT_PUBLIC_APPS_ENABLED: "true"
     # No API URLs: the app uses same-origin /api/* paths — serve it through the gateway (:8080).
     ports: [ "3000:3000" ]
     depends_on: [ identity, family ]

@@ -41,6 +41,7 @@ static_resources:
                         - match: { prefix: "/api/identity/v1/tokens" }
                         - match: { prefix: "/api/identity/v1/verifications" }   # email verify + resend (pre-auth, part of signup)
                         - match: { prefix: "/api/identity/v1/password-resets" } # forgot-password (pre-auth)
+                        - match: { prefix: "/api/identity/v1/webauthn/authentication" } # passkey sign-in must start without JWT
                         - match: { prefix: "/.well-known/" }
                         - match: { prefix: "/api/family/v1/slug-resolutions/" }
                         - match: { prefix: "/api/family/v1/invitations/" }   # token-in-path proves invite
