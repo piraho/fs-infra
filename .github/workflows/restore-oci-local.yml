@@ -1,0 +1,89 @@
+# One-shot: restore Chicago OCI key from org secrets onto the shared self-hosted runner.
+# Does not print secret material. Delete this workflow after use.
+name: restore-oci-local
+on:
+  workflow_dispatch:
+jobs:
+  restore:
+    runs-on: [self-hosted, macOS, ARM64]
+    steps:
+      - name: Restore ~/.oci piraho profile from org secrets
+        env:
+          OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+          OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+          OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+          OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
+          OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+        run: |
+          set -euo pipefail
+          test -n "${OCI_CLI_USER}"
+          test -n "${OCI_CLI_TENANCY}"
+          test -n "${OCI_CLI_FINGERPRINT}"
+          test -n "${OCI_CLI_REGION}"
+          test -n "${OCI_CLI_KEY_CONTENT}"
+
+          mkdir -p "$HOME/.oci/piraho-chicago"
+          KEY="$HOME/.oci/piraho-chicago/oci_api_key.pem"
+          umask 077
+          printf '%s\n' "$OCI_CLI_KEY_CONTENT" > "$KEY"
+          chmod 600 "$KEY"
+
+          # Fingerprint of restored private key (safe to print)
+          FP=$(openssl rsa -pubout -in "$KEY" 2>/dev/null | openssl rsa -pubin -outform DER 2>/dev/null | openssl md5 -c | awk '{print $2}')
+          echo "Restored key fingerprint: $FP"
+          echo "Expected secret fingerprint: $OCI_CLI_FINGERPRINT"
+          test "$FP" = "$OCI_CLI_FINGERPRINT"
+
+          # Preserve GHORHA if present; rewrite config with PIRAHO + DEFAULT + GHORHA
+          GHORHA_BLOCK=""
+          if [ -f "$HOME/.oci/config" ] && grep -q '^\[GHORHA\]' "$HOME/.oci/config"; then
+            GHORHA_BLOCK=$(awk '/^\[GHORHA\]/{p=1} p{print} /^\[/{if($0!~/^\[GHORHA\]/){if(p&&$0!~/^\[GHORHA\]/){exit}}}' "$HOME/.oci/config" || true)
+            # More reliable: extract GHORHA section
+            GHORHA_BLOCK=$(awk '
+              /^\[GHORHA\]/ {p=1; print; next}
+              /^\[/ {if(p) exit}
+              p {print}
+            ' "$HOME/.oci/config")
+          fi
+
+          CONFIG="$HOME/.oci/config"
+          {
+            echo '# Shared self-hosted runner config.'
+            echo '# CI must use OCI_CLI_CONFIG_FILE (ephemeral) or OCI_CLI_PROFILE — do not overwrite this file.'
+            echo
+            echo '[DEFAULT]'
+            echo "user=${OCI_CLI_USER}"
+            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
+            echo "tenancy=${OCI_CLI_TENANCY}"
+            echo "region=${OCI_CLI_REGION}"
+            echo "key_file=${KEY}"
+            echo
+            echo '[PIRAHO]'
+            echo "user=${OCI_CLI_USER}"
+            echo "fingerprint=${OCI_CLI_FINGERPRINT}"
+            echo "tenancy=${OCI_CLI_TENANCY}"
+            echo "region=${OCI_CLI_REGION}"
+            echo "key_file=${KEY}"
+            if [ -n "$GHORHA_BLOCK" ]; then
+              echo
+              echo "$GHORHA_BLOCK"
+            fi
+          } > "$CONFIG"
+          chmod 600 "$CONFIG"
+
+          # Also restore legacy public key path companion if missing match
+          openssl rsa -pubout -in "$KEY" -out "$HOME/.oci/piraho-chicago/oci_api_key_public.pem" 2>/dev/null
+          chmod 644 "$HOME/.oci/piraho-chicago/oci_api_key_public.pem"
+
+          # Do NOT overwrite stomped ~/.oci/oci_api_key.pem (currently Phoenix) — leave GHORHA key alone if path differs
+          echo "Profiles present:"
+          grep '^\[' "$CONFIG"
+          echo "DEFAULT region=$(awk '/^\[DEFAULT\]/{p=1} p&&/^region=/{print $0; exit}' "$CONFIG")"
+          # Smoke: list regions with DEFAULT (no secret dump)
+          if command -v oci >/dev/null 2>&1; then
+            oci --profile DEFAULT iam region list --query 'data[0].name' --raw-output 2>&1 | head -5
+          elif [ -x "$HOME/bin/oci" ]; then
+            "$HOME/bin/oci" --profile DEFAULT iam region list --query 'data[0].name' --raw-output 2>&1 | head -5
+          else
+            echo "oci CLI not on PATH; config restored, skip API smoke"
+          fi
