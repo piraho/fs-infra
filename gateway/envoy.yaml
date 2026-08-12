@@ -13,7 +13,7 @@ static_resources:
                 stat_prefix: edge
                 generate_request_id: true
                 http_filters:
-                  - name: envoy.filters.http.lua        # DEC-0021: correlation id — honor client's, else mint from request id
+                  - name: envoy.filters.http.lua # DEC-0021: correlation id — honor client's, else mint from request id
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
                       default_source_code:
@@ -30,25 +30,33 @@ static_resources:
                       providers:
                         familyshare:
                           issuer: "https://auth.familyshare.localhost"
-                          forward: true                  # services re-validate (defense in depth)
+                          forward: true # services re-validate (defense in depth)
                           remote_jwks:
-                            http_uri: { uri: "http://identity:8081/.well-known/jwks.json",
-                                        cluster: identity, timeout: 2s }
+                            http_uri:
+                              {
+                                uri: "http://identity:8081/.well-known/jwks.json",
+                                cluster: identity,
+                                timeout: 2s,
+                              }
                             cache_duration: 300s
-                      rules:                             # first match wins — public routes precede the API guard
+                      rules: # first match wins — public routes precede the API guard
                         - match: { prefix: "/api/identity/v1/users" }
                         - match: { prefix: "/api/identity/v1/sessions" }
                         - match: { prefix: "/api/identity/v1/tokens" }
-                        - match: { prefix: "/api/identity/v1/verifications" }   # email verify + resend (pre-auth, part of signup)
+                        - match: { prefix: "/api/identity/v1/verifications" } # email verify + resend (pre-auth, part of signup)
                         - match: { prefix: "/api/identity/v1/password-resets" } # forgot-password (pre-auth)
-                        - match: { prefix: "/api/identity/v1/webauthn/authentication" } # passkey sign-in must start without JWT
+                        - match: {
+                              prefix: "/api/identity/v1/webauthn/authentication",
+                            } # passkey sign-in must start without JWT
                         - match: { prefix: "/.well-known/" }
                         - match: { prefix: "/api/family/v1/slug-resolutions/" }
-                        - match: { prefix: "/api/family/v1/invitations/" }   # token-in-path proves invite
-                        - match: { prefix: "/api/integration/v1/integration-tokens" }  # client-credentials auth
-                        - match: { prefix: "/api/integration/v1/data/" }               # X-Api-Key auth in-service
+                        - match: { prefix: "/api/family/v1/invitations/" } # token-in-path proves invite
+                        - match: {
+                              prefix: "/api/integration/v1/integration-tokens",
+                            } # client-credentials auth
+                        - match: { prefix: "/api/integration/v1/data/" } # X-Api-Key auth in-service
                         - match: { prefix: "/api/" }
-                          requires: { provider_name: familyshare }           # everything else: JWT at the edge
+                          requires: { provider_name: familyshare } # everything else: JWT at the edge
                   - name: envoy.filters.http.router
                     typed_config:
                       "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -57,7 +65,11 @@ static_resources:
                     - name: all
                       domains: ["*"]
                       response_headers_to_add:
-                        - header: { key: "X-Correlation-Id", value: "%REQ(X-CORRELATION-ID)%" }
+                        - header:
+                            {
+                              key: "X-Correlation-Id",
+                              value: "%REQ(X-CORRELATION-ID)%",
+                            }
                       routes:
                         - match: { prefix: "/api/identity/" }
                           route: { cluster: identity, prefix_rewrite: "/" }
@@ -89,55 +101,275 @@ static_resources:
     - name: identity
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: identity, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: identity, port_value: 8081 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: identity,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: identity, port_value: 8081 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: family
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: family, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: family, port_value: 8082 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: family,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: family, port_value: 8082 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: sharing
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: sharing, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: sharing, port_value: 8083 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: sharing,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: sharing, port_value: 8083 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: profile
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: profile, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: profile, port_value: 8084 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: profile,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: profile, port_value: 8084 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: calendar
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: calendar, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: calendar, port_value: 8085 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: calendar,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: calendar, port_value: 8085 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: escalation
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: escalation, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: escalation, port_value: 8086 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: escalation,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: escalation, port_value: 8086 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: notification
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: notification, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: notification, port_value: 8087 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: notification,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: notification, port_value: 8087 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: media
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: media, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: media, port_value: 8088 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: media,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: media, port_value: 8088 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: integration
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: integration, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: integration, port_value: 8089 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: integration,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: integration, port_value: 8089 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: assistant
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: assistant, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: assistant, port_value: 8091 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: assistant,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: assistant, port_value: 8091 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
     - name: web
       type: STRICT_DNS
       connect_timeout: 2s
-      load_assignment: { cluster_name: web, endpoints: [ { lb_endpoints: [
-        { endpoint: { address: { socket_address: { address: web, port_value: 3000 } } } } ] } ] }
+      load_assignment:
+        {
+          cluster_name: web,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: web, port_value: 3000 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
