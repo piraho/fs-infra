@@ -42,6 +42,21 @@ on:
         description: Container / service port for the service
         required: true
         type: number
+      runner:
+        # GitHub-hosted by default: a deploy should not depend on one laptop being awake, and
+        # ubuntu-latest ships Docker, which the macOS runners do not (so Testcontainers ITs can
+        # actually run here).
+        #
+        # BILLING, because it is not obvious: minutes for a reusable workflow are charged to the
+        # CALLING repository, not to the repo that hosts this file. fs-infra is public (free,
+        # unlimited), but every service repo that calls this is private, so these runs come out of
+        # the private-repo minute allowance — the same pool whose exhaustion is why the self-hosted
+        # runner existed. Pass `runner: <label>` from a caller to move that service back onto a
+        # self-hosted machine without editing this file.
+        description: Runner for the build/deploy job (e.g. ubuntu-latest, or a self-hosted label)
+        required: false
+        type: string
+        default: ubuntu-latest
 
 permissions:
   contents: read
@@ -49,7 +64,7 @@ permissions:
 
 jobs:
   build-and-deploy:
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: ${{ inputs.runner }}
     steps:
       - name: Checkout service repo
         uses: actions/checkout@v4
@@ -82,8 +97,12 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push image (linux/arm64)
-        # NOTE: the runner is amd64, so arm64 is cross-built through QEMU
-        # emulation here, which is noticeably slower than a native build.
+        # The default runner is amd64 and the cluster is Ampere A1 (arm64), so this is cross-built
+        # through the QEMU emulation set up above. The cost is small here by design: the Dockerfiles
+        # COPY a jar that was already built natively in the step above, so emulation only has to run
+        # whatever RUN layers an image declares (e.g. fs-media's apt-get for cwebp) rather than a
+        # full Gradle build. If a service ever grows a heavy RUN layer, give it a native arm64
+        # runner via the `runner` input instead of paying for emulation on every deploy.
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -93,7 +112,7 @@ jobs:
             ghcr.io/piraho/${{ inputs.service }}:${{ github.sha }}
             ghcr.io/piraho/${{ inputs.service }}:latest
 
-      - name: Configure OCI CLI (reuse shared install)
+      - name: Configure OCI CLI (install if absent, reuse a shared one)
         env:
           OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
           OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
@@ -102,14 +121,20 @@ jobs:
           OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
         run: |
           set -euo pipefail
-          # Shared Mac runner also runs ghorha/referral CD. Never reinstall into
-          # ~/lib/oracle-cli and never overwrite ~/.oci/config.
           echo "${HOME}/bin" >> "$GITHUB_PATH"
-          export PATH="${HOME}/bin:${PATH}"
+          echo "${HOME}/.local/bin" >> "$GITHUB_PATH"
+          export PATH="${HOME}/bin:${HOME}/.local/bin:${PATH}"
+          # Two runner shapes, deliberately:
+          #  - Self-hosted Mac: the CLI is preinstalled and that machine is SHARED with another
+          #    project's CD, so we must not reinstall into ~/lib/oracle-cli or rewrite ~/.oci.
+          #    It has `oci` already, so this branch is skipped and nothing is touched.
+          #  - GitHub-hosted (the default now): nothing is preinstalled and the box is thrown away
+          #    after the job, so installing here is both necessary and safe. Without this the step
+          #    used to hard-fail, which would have broken every deploy the moment CD left the Mac.
           if ! command -v oci >/dev/null 2>&1; then
-            echo "::error::OCI CLI missing. Preinstall once on the runner; do not race-install per job."
-            exit 1
+            python3 -m pip install --user --quiet oci-cli
           fi
+          command -v oci >/dev/null 2>&1 || { echo "::error::OCI CLI unavailable after install"; exit 1; }
           CFG_DIR="${RUNNER_TEMP}/oci-piraho"
           mkdir -p "$CFG_DIR"
           printf '%s\n' "$OCI_CLI_KEY_CONTENT" > "${CFG_DIR}/oci_api_key.pem"
