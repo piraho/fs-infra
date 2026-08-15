@@ -10,6 +10,36 @@ env:
   # Neon free tier caps total connections; keep each service's pool tiny.
   SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
   INTERNAL_AUTH_ENFORCE: "true"   # reject /internal/* without a valid X-Internal-Key (C1/C3/H3)
+  # Native push. The senders are @ConditionalOnProperty on the *-path keys, so they
+  # activate only when the key files are mounted (below). Key/Team ids and the topic are
+  # public identifiers (safe in git); the .p8 and service-account JSON are the secrets and
+  # ride as mounted files, never env values. APNS_PRODUCTION=false = sandbox, matching the
+  # app's aps-environment:development; flip to true (and rebuild the app for production APNs)
+  # for App Store / TestFlight.
+  FAMILYSHARE_PUSH_APNS_KEY_PATH: /secrets/apns/AuthKey.p8
+  FAMILYSHARE_PUSH_APNS_KEY_ID: NRPT48KZ9T
+  FAMILYSHARE_PUSH_APNS_TEAM_ID: CK5XFNRY93
+  FAMILYSHARE_PUSH_APNS_TOPIC: com.aplusbsquare.cozfam
+  FAMILYSHARE_PUSH_APNS_PRODUCTION: "false"
+  FAMILYSHARE_PUSH_FCM_CREDENTIALS_PATH: /secrets/fcm/sa.json
+
+# APNs .p8 (fs-apns-key) + Firebase service-account JSON (fs-fcm-sa) mounted as files.
+# Both K8s Secrets are synced from OCI Vault by External Secrets (see deploy/secrets/) — the
+# Vault entries fs-apns-key-p8 / fs-fcm-service-account hold the key material; nothing touches git.
+volumes:
+  - name: apns-key
+    secret:
+      secretName: fs-apns-key
+  - name: fcm-sa
+    secret:
+      secretName: fs-fcm-sa
+volumeMounts:
+  - name: apns-key
+    mountPath: /secrets/apns
+    readOnly: true
+  - name: fcm-sa
+    mountPath: /secrets/fcm
+    readOnly: true
 
 # fs-db     -> DATABASE_URL / DATABASE_USER / DATABASE_PASSWORD
 # fs-smtp   -> SMTP_HOST / SMTP_PORT (add SMTP_USER / SMTP_PASS keys for a real relay).
