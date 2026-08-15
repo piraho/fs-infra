@@ -10,7 +10,24 @@
 name: deploy-all
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Deploy a single service (e.g. fs-health). Leave blank for all."
+        required: false
+        type: string
+        default: ""
+      runner:
+        # Defaults to a GitHub-hosted runner, and that is deliberate: this workflow is dispatched
+        # FROM fs-infra, which is public, so hosted minutes are free here AND available — unlike the
+        # private service repos, where a hosted job is assigned no runner at all. It also gets a
+        # working Docker daemon, which the self-hosted Macs do not: `docker login` there hangs
+        # indefinitely (observed ~30 min) and `docker build` ran ~100 min before being cancelled,
+        # so the image steps cannot complete on them.
+        description: "Runner for the deploy jobs, as a JSON array of labels."
+        required: false
+        type: string
+        default: '["ubuntu-latest"]'
 
 permissions:
   contents: read
@@ -31,8 +48,15 @@ jobs:
           - { service: fs-notification, port: 8087 }
           - { service: fs-media, port: 8088 }
           - { service: fs-integration, port: 8089 }
+          - { service: fs-ai, port: 8090 }
+          - { service: fs-assistant, port: 8091 }
+          - { service: fs-health, port: 8092 }
+    # `only` lets this drive one service, so a pipeline change can be proven on a single deploy
+    # before it is trusted with all twelve.
+    if: ${{ inputs.only == '' || inputs.only == matrix.service }}
     uses: ./.github/workflows/service-cd.yml
     with:
       service: ${{ matrix.service }}
       port: ${{ matrix.port }}
+      runner: ${{ inputs.runner }}
     secrets: inherit
