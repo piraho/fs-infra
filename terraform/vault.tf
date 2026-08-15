@@ -26,20 +26,29 @@ resource "oci_kms_key" "app" {
 # `terraform apply` will never clobber a value you set in the console.
 locals {
   app_secret_names = [
-    "fs-twilio-account-sid",   # ACxxxx…  (your Twilio Account SID)
-    "fs-twilio-api-key-sid",   # SKxxxx…  (API Key SID)
-    "fs-twilio-api-key-secret",# the API Key secret  — ROTATE the one pasted in chat
-    "fs-twilio-from-number",   # +1XXXXXXXXXX  sender number
-    "fs-email-provider",       # e.g. "dreamlit" or "smtp"
-    "fs-email-api-base",       # provider base URL (if API-based)
-    "fs-email-api-key",        # provider API key/token
-    "fs-email-from",           # From address, e.g. "no-reply@familyshare.app"
-    "fs-ai-openai-api-key",    # OpenAI API key       (fs-ai gateway)
-    "fs-ai-anthropic-api-key", # Anthropic/Claude key (fs-ai gateway)
-    "fs-ai-gemini-api-key",    # Google Gemini key    (fs-ai gateway)
-    "fs-health-master-key",    # base64(32 random bytes) — PHI envelope-encryption master key (fs-health)
+    "fs-twilio-account-sid",    # ACxxxx…  (your Twilio Account SID)
+    "fs-twilio-api-key-sid",    # SKxxxx…  (API Key SID)
+    "fs-twilio-api-key-secret", # the API Key secret  — ROTATE the one pasted in chat
+    "fs-twilio-from-number",    # +1XXXXXXXXXX  sender number
+    "fs-email-provider",        # e.g. "dreamlit" or "smtp"
+    "fs-email-api-base",        # provider base URL (if API-based)
+    "fs-email-api-key",         # provider API key/token
+    "fs-email-from",            # From address, e.g. "no-reply@familyshare.app"
+    "fs-ai-openai-api-key",     # OpenAI API key       (fs-ai gateway)
+    "fs-ai-anthropic-api-key",  # Anthropic/Claude key (fs-ai gateway)
+    "fs-ai-gemini-api-key",     # Google Gemini key    (fs-ai gateway)
+    "fs-health-master-key",     # base64(32 random bytes) — PHI envelope-encryption master key (fs-health)
+    "fs-apns-key-p8",           # Apple APNs signing key (.p8 PEM) — native iOS push (fs-notification)
+    "fs-fcm-service-account",   # Firebase Admin SDK service-account JSON — native Android push (fs-notification)
   ]
 }
+
+# NOTE: fs-apns-key-p8 and fs-fcm-service-account were bootstrapped with real content via the
+# oci CLI (the key files are shell-hostile to paste). Before the next `terraform apply`, import
+# them so Terraform adopts them without a create-conflict — ignore_changes on secret_content keeps
+# the real value:
+#   terraform import 'oci_vault_secret.app["fs-apns-key-p8"]'         ocid1.vaultsecret.oc1.us-chicago-1.amaaaaaadguzboiahlsl26ll6lhwbk4lkybgn32bewtjawkxdha723voq2ta
+#   terraform import 'oci_vault_secret.app["fs-fcm-service-account"]' ocid1.vaultsecret.oc1.us-chicago-1.amaaaaaadguzboiaqcu6tj2s4anbohu7bpan33gajiwuqflus22xcqmthkyq
 
 resource "oci_vault_secret" "app" {
   for_each       = toset(local.app_secret_names)

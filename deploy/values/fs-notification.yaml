@@ -24,8 +24,8 @@ env:
   FAMILYSHARE_PUSH_FCM_CREDENTIALS_PATH: /secrets/fcm/sa.json
 
 # APNs .p8 (fs-apns-key) + Firebase service-account JSON (fs-fcm-sa) mounted as files.
-# Both Secrets are created out-of-band from the key files (see deploy/base/secrets.example.yaml)
-# so no private key ever touches git.
+# Both K8s Secrets are synced from OCI Vault by External Secrets (see deploy/secrets/) — the
+# Vault entries fs-apns-key-p8 / fs-fcm-service-account hold the key material; nothing touches git.
 volumes:
   - name: apns-key
     secret:
