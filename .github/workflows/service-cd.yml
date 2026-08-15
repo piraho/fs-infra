@@ -43,20 +43,25 @@ on:
         required: true
         type: number
       runner:
-        # GitHub-hosted by default: a deploy should not depend on one laptop being awake, and
-        # ubuntu-latest ships Docker, which the macOS runners do not (so Testcontainers ITs can
-        # actually run here).
+        # Self-hosted by default, and this is measured rather than assumed: a hosted runner is not
+        # reachable from these repos today. A job requesting ubuntu-latest from a PRIVATE repo here
+        # fails in ~3 seconds having been assigned no runner and run zero steps (fs-health, and
+        # fs-android continuously since 2026-08-13), while the identical label from PUBLIC fs-infra
+        # gets a runner and executes normally — the signature of the private-repo Actions allowance
+        # being spent. Reusable-workflow minutes bill to the CALLING repo, so fs-infra being public
+        # and free does not carry over to the twelve private services that call this.
         #
-        # BILLING, because it is not obvious: minutes for a reusable workflow are charged to the
-        # CALLING repository, not to the repo that hosts this file. fs-infra is public (free,
-        # unlimited), but every service repo that calls this is private, so these runs come out of
-        # the private-repo minute allowance — the same pool whose exhaustion is why the self-hosted
-        # runner existed. Pass `runner: <label>` from a caller to move that service back onto a
-        # self-hosted machine without editing this file.
-        description: Runner for the build/deploy job (e.g. ubuntu-latest, or a self-hosted label)
+        # Deliberately NOT pinned to ARM64: only two of the four org runners carry that label and
+        # both are usually busy, which is how a batch of PR jobs queued ~75 minutes and was then
+        # cancelled with zero steps. Any macOS runner can cross-build the arm64 image through the
+        # QEMU step below.
+        #
+        # Flip this to ubuntu-latest the moment private-repo minutes are available (or the services
+        # go public, which also unlocks free native ubuntu-24.04-arm and removes the emulation).
+        description: "Runner for the build/deploy job. JSON array of labels."
         required: false
         type: string
-        default: ubuntu-latest
+        default: '["self-hosted", "macOS"]'
 
 permissions:
   contents: read
@@ -64,7 +69,7 @@ permissions:
 
 jobs:
   build-and-deploy:
-    runs-on: ${{ inputs.runner }}
+    runs-on: ${{ fromJSON(inputs.runner) }}
     steps:
       - name: Checkout service repo
         uses: actions/checkout@v4
@@ -97,12 +102,11 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build and push image (linux/arm64)
-        # The default runner is amd64 and the cluster is Ampere A1 (arm64), so this is cross-built
-        # through the QEMU emulation set up above. The cost is small here by design: the Dockerfiles
-        # COPY a jar that was already built natively in the step above, so emulation only has to run
-        # whatever RUN layers an image declares (e.g. fs-media's apt-get for cwebp) rather than a
-        # full Gradle build. If a service ever grows a heavy RUN layer, give it a native arm64
-        # runner via the `runner` input instead of paying for emulation on every deploy.
+        # The cluster is Ampere A1 (arm64). On an ARM64 self-hosted Mac this is effectively native;
+        # on an X64 one (or a hosted Linux runner) it cross-builds through the QEMU step above. That
+        # stays cheap either way because the Dockerfiles COPY a jar already built natively in the
+        # step above, so emulation only runs whatever RUN layers an image declares (e.g. fs-media's
+        # apt-get for cwebp) rather than a full Gradle build.
         uses: docker/build-push-action@v6
         with:
           context: .
