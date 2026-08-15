@@ -34,26 +34,43 @@ permissions:
   packages: write
 
 jobs:
+  # The matrix is computed rather than literal so `only` can narrow it. A job-level `if` cannot be
+  # used for this: a reusable-workflow call does not expose the `matrix` context to `if`.
+  prep:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.pick.outputs.matrix }}
+    steps:
+      - id: pick
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          set -euo pipefail
+          all='[{"service":"fs-identity","port":8081},
+                {"service":"fs-family","port":8082},
+                {"service":"fs-sharing","port":8083},
+                {"service":"fs-profile","port":8084},
+                {"service":"fs-calendar","port":8085},
+                {"service":"fs-escalation","port":8086},
+                {"service":"fs-notification","port":8087},
+                {"service":"fs-media","port":8088},
+                {"service":"fs-integration","port":8089},
+                {"service":"fs-ai","port":8090},
+                {"service":"fs-assistant","port":8091},
+                {"service":"fs-health","port":8092}]'
+          if [ -z "${ONLY}" ]; then
+            picked=$(jq -c '.' <<<"$all")
+          else
+            picked=$(jq -c --arg s "$ONLY" '[.[] | select(.service==$s)]' <<<"$all")
+            [ "$(jq 'length' <<<"$picked")" -gt 0 ] || { echo "::error::unknown service '${ONLY}'"; exit 1; }
+          fi
+          echo "matrix={\"include\":$picked}" >> "$GITHUB_OUTPUT"
+
   rollout:
+    needs: prep
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { service: fs-identity, port: 8081 }
-          - { service: fs-family, port: 8082 }
-          - { service: fs-sharing, port: 8083 }
-          - { service: fs-profile, port: 8084 }
-          - { service: fs-calendar, port: 8085 }
-          - { service: fs-escalation, port: 8086 }
-          - { service: fs-notification, port: 8087 }
-          - { service: fs-media, port: 8088 }
-          - { service: fs-integration, port: 8089 }
-          - { service: fs-ai, port: 8090 }
-          - { service: fs-assistant, port: 8091 }
-          - { service: fs-health, port: 8092 }
-    # `only` lets this drive one service, so a pipeline change can be proven on a single deploy
-    # before it is trusted with all twelve.
-    if: ${{ inputs.only == '' || inputs.only == matrix.service }}
+      matrix: ${{ fromJSON(needs.prep.outputs.matrix) }}
     uses: ./.github/workflows/service-cd.yml
     with:
       service: ${{ matrix.service }}
