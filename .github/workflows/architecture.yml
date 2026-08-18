@@ -24,3 +24,5 @@ jobs:
         run: bash scripts/check-docs-in-sync.sh "origin/${{ github.base_ref || 'main' }}"
       - name: Mermaid diagrams compile
         run: bash scripts/check-mermaid.sh
+      - name: OKF files are valid
+        run: bash scripts/check-okf.sh

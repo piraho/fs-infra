@@ -62,6 +62,30 @@ Parse-only — no Chromium, no puppeteer. The first run provisions `mermaid` + `
 `~/.cache/fs-mermaid-lint` (override with `MERMAID_LINT_HOME`); later runs are instant. Failures are emitted
 as `::error file=…,line=…::` so they land as inline annotations on the PR diff.
 
+## 3b. Validating the `.okf`
+
+The [Service Knowledge Standard](./SERVICE-KNOWLEDGE-STANDARD.md) calls `<service>.okf`
+**machine-parseable** YAML. Nothing enforced that, and **9 of 16 files silently failed to parse** — so the
+machine-readable half of the standard was inert wherever it mattered most. This check keeps it honest:
+
+```bash
+scripts/check-okf.sh                 # every *.okf in the repo root
+scripts/check-okf.sh path/to/x.okf   # specific files
+```
+
+It fails the build when a file does not parse as YAML, when `schema` is not `okf/1`, when `service.name` is
+missing, or when an `api` entry is not a mapping with a `path`/`route` — that last one catches the exact
+defect that broke most files, an unquoted value silently collapsing a flow mapping.
+
+**The two traps, both pure quoting:**
+
+- **Unquoted `path:` values.** `?`, `{` and `}` are YAML indicators in flow context, so
+  `path: /v1/notifications/{id}/seen` and `path: /v1/feed?family_id` are not valid scalars. Quote them.
+- **Unquoted alternation or commas inside a value.** `platform(varchar 16, 'ios'|'android')` inside a
+  `key_fields: [...]` splits at the comma and then fails on `|`. Quote the whole field.
+
+When in doubt, **quote the value**. A quoted scalar is always safe; a bare one is only safe by accident.
+
 ## 4. The sync rule (enforced in CI)
 
 `scripts/check-docs-in-sync.sh` fails a PR that changes the **shape** of a service without redrawing it.
@@ -100,6 +124,8 @@ jobs:
         run: bash scripts/check-docs-in-sync.sh "origin/${{ github.base_ref || 'main' }}"
       - name: Mermaid diagrams compile
         run: bash scripts/check-mermaid.sh
+      - name: OKF files are valid
+        run: bash scripts/check-okf.sh
 ```
 
 `fetch-depth: 0` is required — the sync guard diffs against the PR base and cannot do that on a shallow
