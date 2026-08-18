@@ -1,0 +1,28 @@
+# Architecture Documentation Standard — see docs/ARCHITECTURE-STANDARD.md
+#
+# Compiles every mermaid diagram in ARCHITECTURE.md (and docs/*.md) with mermaid's own
+# parser, so a diagram that would render as a grey error box on GitHub fails the build
+# instead. Parse-only: no Chromium, no puppeteer.
+# This repo has no other docs-in-sync job, so both checks run here.
+name: architecture
+on:
+  pull_request: {}
+  push: { branches: [ main ] }
+concurrency:
+  group: "architecture-${{ github.ref }}"
+  cancel-in-progress: true
+
+jobs:
+  architecture:
+    runs-on: [self-hosted, macOS]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - name: Architecture docs in sync
+        run: bash scripts/check-docs-in-sync.sh "origin/${{ github.base_ref || 'main' }}"
+      - name: Mermaid diagrams compile
+        run: bash scripts/check-mermaid.sh
+      - name: OKF files are valid
+        run: bash scripts/check-okf.sh
