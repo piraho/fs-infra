@@ -48,6 +48,7 @@ static_resources:
                         - match: {
                               prefix: "/api/identity/v1/webauthn/authentication",
                             } # passkey sign-in must start without JWT
+                        - match: { prefix: "/api/identity/v1/public/" } # My code: a scanned /u/<id> resolves without a session; the payload is deny-by-default (identity only reveals opted-in fields)
                         - match: { prefix: "/.well-known/" }
                         - match: { prefix: "/api/family/v1/slug-resolutions/" }
                         - match: { prefix: "/api/family/v1/invitations/" } # token-in-path proves invite
