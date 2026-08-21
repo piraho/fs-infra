@@ -93,6 +93,8 @@ static_resources:
                           route: { cluster: integration, prefix_rewrite: "/" }
                         - match: { prefix: "/api/assistant/" }
                           route: { cluster: assistant, prefix_rewrite: "/" }
+                        - match: { prefix: "/api/health/" }
+                          route: { cluster: health, prefix_rewrite: "/" }
                         - match: { prefix: "/" }
                           route: { cluster: web }
   # Envoy's config loader does not support YAML merge keys (<<: *anchor), so each
@@ -341,6 +343,31 @@ static_resources:
                             {
                               socket_address:
                                 { address: assistant, port_value: 8091 },
+                            },
+                        },
+                    },
+                  ],
+              },
+            ],
+        }
+    - name: health
+      type: STRICT_DNS
+      connect_timeout: 2s
+      load_assignment:
+        {
+          cluster_name: health,
+          endpoints:
+            [
+              {
+                lb_endpoints:
+                  [
+                    {
+                      endpoint:
+                        {
+                          address:
+                            {
+                              socket_address:
+                                { address: health, port_value: 8092 },
                             },
                         },
                     },

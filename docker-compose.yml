@@ -2,11 +2,24 @@
 name: familyshare
 services:
   postgres:
-    image: pgvector/pgvector:pg16   # postgres 16 + pgvector (superset) — needed by fs-ai's semantic cache
-    environment: { POSTGRES_USER: familyshare, POSTGRES_PASSWORD: familyshare, POSTGRES_DB: familyshare }
-    ports: [ "5432:5432" ]
-    volumes: [ "pgdata:/var/lib/postgresql/data" ]
-    healthcheck: { test: [ "CMD-SHELL", "pg_isready -U familyshare" ], interval: 5s, retries: 12 }
+    image: pgvector/pgvector:pg16 # postgres 16 + pgvector (superset) — needed by fs-ai's semantic cache
+    # 12 Java services × default Hikari pools exhaust postgres's default max_connections=100
+    # (fs-health was the twelfth: "FATAL: sorry, too many clients already"). 300 gives headroom.
+    command: ["postgres", "-c", "max_connections=300"]
+    environment:
+      {
+        POSTGRES_USER: familyshare,
+        POSTGRES_PASSWORD: familyshare,
+        POSTGRES_DB: familyshare,
+      }
+    ports: ["5432:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      {
+        test: ["CMD-SHELL", "pg_isready -U familyshare"],
+        interval: 5s,
+        retries: 12,
+      }
   identity:
     build: ../fs-identity
     environment:
@@ -15,9 +28,18 @@ services:
       DATABASE_PASSWORD: familyshare
       WEBAUTHN_RP_ID: localhost
       WEBAUTHN_ORIGINS: http://localhost:8080
-    ports: [ "8081:8081" ]
+    ports: ["8081:8081"]
     depends_on: { postgres: { condition: service_healthy } }
-    healthcheck: { test: [ "CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health | grep -q UP" ], interval: 10s, retries: 20 }
+    healthcheck:
+      {
+        test:
+          [
+            "CMD-SHELL",
+            "wget -qO- http://localhost:8081/actuator/health | grep -q UP",
+          ],
+        interval: 10s,
+        retries: 20,
+      }
   family:
     build: ../fs-family
     environment:
@@ -25,7 +47,7 @@ services:
       DATABASE_USER: familyshare
       DATABASE_PASSWORD: familyshare
       JWKS_URI: http://identity:8081/.well-known/jwks.json
-    ports: [ "8082:8082" ]
+    ports: ["8082:8082"]
     depends_on:
       identity: { condition: service_healthy }
   sharing:
@@ -36,7 +58,7 @@ services:
       DATABASE_PASSWORD: familyshare
       JWKS_URI: http://identity:8081/.well-known/jwks.json
       FAMILY_URL: http://family:8082
-    ports: [ "8083:8083" ]
+    ports: ["8083:8083"]
     depends_on:
       identity: { condition: service_healthy }
   profile:
@@ -48,7 +70,7 @@ services:
       JWKS_URI: http://identity:8081/.well-known/jwks.json
       FAMILY_URL: http://family:8082
       SHARING_URL: http://sharing:8083
-    ports: [ "8084:8084" ]
+    ports: ["8084:8084"]
     depends_on:
       identity: { condition: service_healthy }
   calendar:
@@ -62,7 +84,7 @@ services:
       ESCALATION_URL: http://escalation:8086
       NOTIFICATION_URL: http://notification:8087
       IDENTITY_URL: http://identity:8081
-    ports: [ "8085:8085" ]
+    ports: ["8085:8085"]
     depends_on:
       identity: { condition: service_healthy }
   escalation:
@@ -74,7 +96,7 @@ services:
       JWKS_URI: http://identity:8081/.well-known/jwks.json
       FAMILY_URL: http://family:8082
       NOTIFICATION_URL: http://notification:8087
-    ports: [ "8086:8086" ]
+    ports: ["8086:8086"]
     depends_on:
       identity: { condition: service_healthy }
   notification:
@@ -88,7 +110,7 @@ services:
       AI_URL: http://ai:8090
       SMTP_HOST: mailpit
       SMTP_PORT: 1025
-    ports: [ "8087:8087" ]
+    ports: ["8087:8087"]
     depends_on:
       identity: { condition: service_healthy }
   integration:
@@ -101,7 +123,7 @@ services:
       FAMILY_URL: http://family:8082
       IDENTITY_URL: http://identity:8081
       PROFILE_URL: http://profile:8084
-    ports: [ "8089:8089" ]
+    ports: ["8089:8089"]
     depends_on:
       identity: { condition: service_healthy }
   ai:
@@ -111,11 +133,15 @@ services:
       DATABASE_USER: familyshare
       DATABASE_PASSWORD: familyshare
       JWKS_URI: http://identity:8081/.well-known/jwks.json
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}       # set in your shell / .env for local calls
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-} # set in your shell / .env for local calls
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-    ports: [ "8090:8090" ]
-    depends_on: { postgres: { condition: service_healthy }, identity: { condition: service_healthy } }
+    ports: ["8090:8090"]
+    depends_on:
+      {
+        postgres: { condition: service_healthy },
+        identity: { condition: service_healthy },
+      }
   assistant:
     build: ../fs-assistant
     environment:
@@ -125,13 +151,35 @@ services:
       CALENDAR_URL: http://calendar:8085
       PROFILE_URL: http://profile:8084
       INTERNAL_API_KEY: ${INTERNAL_API_KEY:-familyshare-internal}
-    ports: [ "8091:8091" ]
+    ports: ["8091:8091"]
     depends_on:
       identity: { condition: service_healthy }
       ai: { condition: service_started }
       family: { condition: service_started }
       calendar: { condition: service_started }
       profile: { condition: service_started }
+  health:
+    build: ../fs-health
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/familyshare
+      DATABASE_USER: familyshare
+      DATABASE_PASSWORD: familyshare
+      JWKS_URI: http://identity:8081/.well-known/jwks.json
+      FAMILY_URL: http://family:8082
+      IDENTITY_URL: http://identity:8081
+      NOTIFICATION_URL: http://notification:8087
+      AI_URL: http://ai:8090
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_ACCESS_KEY: familyshare
+      S3_SECRET_KEY: familyshare-secret
+      # base64 of 32 bytes; dev only — production must supply a real HEALTH_MASTER_KEY (OCI Vault via ESO).
+      HEALTH_MASTER_KEY: ${HEALTH_MASTER_KEY:-ZGV2LW9ubHktMzItYnl0ZS1tYXN0ZXIta2V5LTAwMDA=}
+    ports: ["8092:8092"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      identity: { condition: service_healthy }
+      minio: { condition: service_started }
   media:
     build: ../fs-media
     environment:
@@ -145,7 +193,7 @@ services:
       S3_PUBLIC_ENDPOINT: http://localhost:9000
       S3_ACCESS_KEY: familyshare
       S3_SECRET_KEY: familyshare-secret
-    ports: [ "8088:8088" ]
+    ports: ["8088:8088"]
     depends_on:
       identity: { condition: service_healthy }
       minio: { condition: service_started }
@@ -156,22 +204,33 @@ services:
       MINIO_ROOT_USER: familyshare
       MINIO_ROOT_PASSWORD: familyshare-secret
       MINIO_API_CORS_ALLOW_ORIGIN: "*"
-    ports: [ "9000:9000", "9001:9001" ]
-    volumes: [ "miniodata:/data" ]
+    ports: ["9000:9000", "9001:9001"]
+    volumes: ["miniodata:/data"]
   mailpit:
     image: axllent/mailpit
-    ports: [ "8025:8025" ]
+    ports: ["8025:8025"]
   gateway:
     image: envoyproxy/envoy:v1.31-latest
-    command: [ "envoy", "-c", "/etc/envoy/envoy.yaml" ]
-    volumes: [ "./gateway/envoy.yaml:/etc/envoy/envoy.yaml:ro" ]
-    ports: [ "8080:8080" ]
-    depends_on: [ identity, family, sharing, profile, calendar, escalation, assistant, web ]
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml"]
+    volumes: ["./gateway/envoy.yaml:/etc/envoy/envoy.yaml:ro"]
+    ports: ["8080:8080"]
+    depends_on:
+      [
+        identity,
+        family,
+        sharing,
+        profile,
+        calendar,
+        escalation,
+        assistant,
+        health,
+        web,
+      ]
   web:
     build: ../fs-web
     environment:
       NEXT_PUBLIC_APPS_ENABLED: "true"
     # No API URLs: the app uses same-origin /api/* paths — serve it through the gateway (:8080).
-    ports: [ "3000:3000" ]
-    depends_on: [ identity, family ]
+    ports: ["3000:3000"]
+    depends_on: [identity, family]
 volumes: { pgdata: {}, miniodata: {} }
